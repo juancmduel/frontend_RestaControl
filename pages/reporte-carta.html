@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+    <title>RestaControl | Reporte de Carta</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+
+    <link
+        href="../css/styles.css"
+        rel="stylesheet">
+</head>
+
+<script src="../js/config.js"></script>
+<script src="../js/footer.js"></script>
+
+<body class="admin-body">
+
+<div id="sidebarMount"></div>
+
+<div class="main-wrapper">
+
+    <header class="topbar">
+
+        <button
+            type="button"
+            class="btn btn-icon"
+            id="sidebarToggle">
+
+            <i
+                class="bi bi-list"
+                style="font-size:1.3rem;">
+            </i>
+        </button>
+
+        <nav
+            aria-label="breadcrumb"
+            class="ms-2 d-none d-sm-block">
+
+            <ol class="breadcrumb mb-0">
+
+                <li class="breadcrumb-item">
+
+                    <a href="dashboard.html">
+                        Inicio
+                    </a>
+
+                </li>
+
+                <li class="breadcrumb-item active">
+                    Reporte de Carta
+                </li>
+
+            </ol>
+
+        </nav>
+
+        <div class="topbar-right ms-auto d-flex align-items-center gap-3">
+
+            <span
+                class="topbar-date"
+                id="topbarDate">
+            </span>
+
+            <div class="dropdown">
+
+                <button
+                    type="button"
+                    class="btn btn-icon"
+                    data-bs-toggle="dropdown">
+
+                    <i
+                        class="bi bi-person-circle"
+                        style="font-size:1.4rem;color:#7a8898;">
+                    </i>
+                </button>
+
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+
+                    <li>
+
+                        <div class="d-flex align-items-center gap-2 px-3 py-2">
+
+                            <div
+                                class="user-avatar"
+                                style="width:36px;height:36px;flex-shrink:0;">
+
+                                <i class="bi bi-person-fill"></i>
+
+                            </div>
+
+                            <div>
+
+                                <div
+                                    class="fw-semibold small"
+                                    id="headerUserName">
+
+                                    Administrador
+                                </div>
+
+                                <div
+                                    class="text-muted"
+                                    style="font-size:.75rem;"
+                                    id="headerUserRole">
+
+                                    Sistema Activo
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </li>
+
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+
+                    <li>
+
+                        <a
+                            class="dropdown-item text-danger"
+                            href="#"
+                            onclick="event.preventDefault(); Auth.logout();">
+
+                            <i class="bi bi-box-arrow-right me-2"></i>
+                            Cerrar sesión
+
+                        </a>
+
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </div>
+
+    </header>
+
+    <main class="page-content">
+
+        <div class="page-header">
+
+            <div>
+
+                <h1 class="page-title">
+
+                    <i class="bi bi-journal-richtext"></i>
+                    Reporte de Carta
+
+                </h1>
+
+                <p class="page-desc">
+
+                    Consulta los platos y productos disponibles en la carta,
+                    con información de precios, categorías, stock y estado.
+
+                </p>
+
+            </div>
+
+            <button
+                type="button"
+                class="btn btn-outline-success"
+                id="btnExportarCarta">
+
+                <i class="bi bi-file-earmark-excel me-1"></i>
+                Exportar Excel
+
+            </button>
+
+        </div>
+
+        <!-- KPI -->
+        <div class="stats-grid mb-4">
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-blue">
+                    <i class="bi bi-journals"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Total en carta
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiCartaTotal">
+
+                        0
+                    </div>
+
+                    <div class="stat-note">
+                        Platos y productos
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-orange">
+                    <i class="bi bi-egg-fried"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Platos
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiCartaPlatos">
+
+                        0
+                    </div>
+
+                    <div class="stat-note">
+                        Platos registrados
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-purple">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Productos
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiCartaProductos">
+
+                        0
+                    </div>
+
+                    <div class="stat-note">
+                        Productos registrados
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-green">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Disponibles
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiCartaDisponibles">
+
+                        0
+                    </div>
+
+                    <div class="stat-note">
+                        Disponibles para venta
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="content-card">
+
+            <!-- FILTROS -->
+            <div class="row g-3 mb-4 align-items-end">
+
+                <div class="col-lg-2 col-md-4">
+
+                    <label
+                        for="filtroCartaTipo"
+                        class="form-label small fw-semibold">
+
+                        Tipo
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="filtroCartaTipo">
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="plato">
+                            Platos
+                        </option>
+
+                        <option value="producto">
+                            Productos
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+
+                    <label
+                        for="filtroCartaCategoria"
+                        class="form-label small fw-semibold">
+
+                        Categoría
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="filtroCartaCategoria">
+
+                        <option value="">
+                            Todas
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+
+                    <label
+                        for="filtroCartaEstado"
+                        class="form-label small fw-semibold">
+
+                        Estado
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="filtroCartaEstado">
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="activo">
+                            Activo
+                        </option>
+
+                        <option value="inactivo">
+                            Inactivo
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+
+                    <label
+                        for="filtroCartaDisponibilidad"
+                        class="form-label small fw-semibold">
+
+                        Disponibilidad
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="filtroCartaDisponibilidad">
+
+                        <option value="">
+                            Todas
+                        </option>
+
+                        <option value="disponible">
+                            Disponible
+                        </option>
+
+                        <option value="no_disponible">
+                            No disponible
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+
+                    <label
+                        for="busquedaCarta"
+                        class="form-label small fw-semibold">
+
+                        Buscar
+                    </label>
+
+                    <div class="input-group">
+
+                        <span class="input-group-text bg-white border-end-0">
+
+                            <i class="bi bi-search text-muted"></i>
+
+                        </span>
+
+                        <input
+                            type="text"
+                            class="form-control border-start-0"
+                            id="busquedaCarta"
+                            placeholder="Código, nombre o categoría...">
+
+                    </div>
+
+                </div>
+
+                <div class="col-lg-1 col-md-2">
+
+                    <button
+                        type="button"
+                        class="btn btn-brand w-100"
+                        id="btnBuscarCarta"
+                        title="Aplicar filtros">
+
+                        <i class="bi bi-funnel"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="d-flex justify-content-end mb-3">
+
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="btnLimpiarCarta">
+
+                    <i class="bi bi-eraser me-1"></i>
+                    Limpiar filtros
+
+                </button>
+
+            </div>
+
+            <!-- TABLA -->
+            <div class="table-responsive">
+
+                <table class="table table-hover align-middle">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Tipo</th>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Categoría</th>
+                            <th class="text-end">Precio</th>
+                            <th class="text-center">Stock</th>
+                            <th>Disponibilidad</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="reporteCartaBody">
+
+                        <tr>
+
+                            <td
+                                colspan="9"
+                                class="text-center text-muted py-4">
+
+                                <span
+                                    class="spinner-border spinner-border-sm me-2">
+                                </span>
+
+                                Cargando carta...
+
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <div class="table-footer">
+
+                <span
+                    class="table-count"
+                    id="reporteCartaCount">
+
+                    Mostrando 0 registros
+
+                </span>
+
+                <nav aria-label="Paginación">
+
+                    <ul class="pagination pagination-sm mb-0">
+
+                        <li
+                            class="page-item disabled"
+                            id="liPrevCarta">
+
+                            <a
+                                class="page-link"
+                                href="#"
+                                id="btnPrevCarta">
+
+                                &laquo;
+
+                            </a>
+
+                        </li>
+
+                        <li class="page-item disabled">
+
+                            <span
+                                class="page-link"
+                                id="lblPaginaCarta">
+
+                                -
+                            </span>
+
+                        </li>
+
+                        <li
+                            class="page-item disabled"
+                            id="liNextCarta">
+
+                            <a
+                                class="page-link"
+                                href="#"
+                                id="btnNextCarta">
+
+                                &raquo;
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </nav>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer
+        class="admin-footer"
+        id="footer-global">
+    </footer>
+
+</div>
+
+<!-- MODAL DETALLE -->
+<div
+    class="modal fade"
+    id="modalCartaDetalle"
+    tabindex="-1"
+    aria-hidden="true">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+
+                    <i class="bi bi-journal-text me-1"></i>
+                    Detalle de carta
+
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div class="carta-detail-header">
+
+                    <div
+                        class="carta-detail-icon"
+                        id="modalCartaIcon">
+
+                        <i class="bi bi-journal"></i>
+
+                    </div>
+
+                    <div>
+
+                        <div
+                            class="text-muted small"
+                            id="modalCartaTipo">
+
+                            Tipo
+                        </div>
+
+                        <h4
+                            class="mb-1"
+                            id="modalCartaNombre">
+
+                            -
+                        </h4>
+
+                        <span id="modalCartaEstado"></span>
+
+                    </div>
+
+                </div>
+
+                <hr>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+
+                        <div class="carta-detail-field">
+
+                            <span>Código</span>
+
+                            <strong id="modalCartaCodigo">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="carta-detail-field">
+
+                            <span>Categoría</span>
+
+                            <strong id="modalCartaCategoria">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="carta-detail-field">
+
+                            <span>Precio</span>
+
+                            <strong id="modalCartaPrecio">
+                                S/ 0.00
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="carta-detail-field">
+
+                            <span>Stock</span>
+
+                            <strong id="modalCartaStock">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="carta-detail-field">
+
+                            <span>Unidad de medida</span>
+
+                            <strong id="modalCartaUnidad">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="carta-detail-field">
+
+                            <span>Disponibilidad</span>
+
+                            <strong id="modalCartaDisponibilidad">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-12">
+
+                        <div class="carta-detail-description">
+
+                            <span>Descripción</span>
+
+                            <p
+                                class="mb-0"
+                                id="modalCartaDescripcion">
+
+                                Sin descripción.
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cerrar
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="../js/auth.js"></script>
+<script src="../js/app.js"></script>
+<script src="../js/layout.js"></script>
+<script src="../js/reporte-carta.js?v=1"></script>
+
+<script>
+(async () => {
+    await Layout.loadSharedSidebar();
+    Layout.init('reporteCarta');
+
+    if (window.ReporteCarta) {
+        await window.ReporteCarta.init();
+    }
+})();
+</script>
+
+</body>
+</html>

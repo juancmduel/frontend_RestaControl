@@ -9,6 +9,12 @@
     const apiBaseUrl = window.APP_CONFIG?.API_BASE_URL ? String(window.APP_CONFIG.API_BASE_URL).replace(/\/+$/, '') : '';
 
     async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         const data = await loadReportData();
         renderSummary(data);
         renderTable(data.history || []);
@@ -24,22 +30,35 @@
     }
 
     async function fetchReportFromApi() {
-        try {
-            const response = await fetch(`${apiBaseUrl}/api/reportes/ventas?periodo=7d`);
-            if (!response.ok) {
-                console.warn('Backend de ventas no disponible:', response.status);
-                return null;
+        const response = await fetch(
+            `${apiBaseUrl}/api/reportes/ventas?periodo=7d`,
+            {
+                credentials: 'include'
             }
-            const payload = await response.json();
-            if (!payload || !payload.success || !payload.data || typeof payload.data !== 'object') {
-                console.warn('Respuesta de reporte de ventas inválida.');
-                return null;
-            }
-            return payload.data;
-        } catch (error) {
-            console.warn('Error cargando reporte de ventas desde backend:', error);
-            return null;
+        );
+
+        const payload = await safeJson(response);
+
+        if (response.status === 401) {
+            setTimeout(() => Auth.logout(), 700);
+            throw new Error('Tu sesión ha expirado.');
         }
+
+        if (response.status === 403) {
+            throw new Error(
+                payload?.message ||
+                'No tienes permisos para consultar el reporte de ventas.'
+            );
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                payload?.message ||
+                'No se pudo cargar el reporte de ventas.'
+            );
+        }
+
+        return payload?.data || payload;
     }
 
     function normalizeReportData(data) {
@@ -223,6 +242,19 @@
         }
     }
 
+    async function safeJson(response) {
+        try {
+            return await response.json();
+        } catch (error) {
+            console.error(
+                'La respuesta del servidor no contiene un JSON válido:',
+                error
+            );
+
+            return null;
+        }
+    }
+    
     function formatCurrency(value) {
         const number = Number(value || 0);
         return `S/ ${number.toFixed(2)}`;

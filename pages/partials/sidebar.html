@@ -18,6 +18,7 @@
         
         <li><a class="nav-link" href="mesas.html" data-page="mesas"><i class="bi bi-grid-3x3-gap"></i><span>Mesas</span></a></li>
         <li class="nav-section">Servicio</li>
+        <li><a class="nav-link" href="carta-menu.html" data-page="cartaMenu"><i class="bi bi-list-check"></i><span>Carta</span></a></li>
         <li><a class="nav-link" href="lista-mesas.html" data-page="listaMesas"><i class="bi bi-grid"></i><span>Lista-Mesas</span></a></li>
         <li><a class="nav-link" href="reservas.html" data-page="reservas"><i class="bi bi-calendar-check"></i><span>Reservas</span></a></li>
         <li><a class="nav-link" href="cocina.html" data-page="cocina"><i class="bi bi-fire"></i><span>Cocina</span></a></li>
@@ -28,18 +29,142 @@
         <li><a class="nav-link" href="reporte-platos.html" data-page="reportePlatosConsumidos"><i class="bi bi-egg-fried"></i><span>Platos consumidos</span></a></li>
         <li><a class="nav-link" href="reporte-caja.html" data-page="reporteCaja"><i class="bi bi-cash-stack"></i><span>Caja</span></a></li>
 
-        <li><a class="nav-link" href="detalle-pedidos.html" data-page="detallePedidos"><i class="bi bi-list-check"></i><span>Detalle Pedidos</span></a></li>
+        <li><a class="nav-link" href="reporte-carta.html" data-page="reporteCarta"><i class="bi bi-list-check"></i><span>Carta</span></a></li>
+        
     </ul>
     <div class="sidebar-footer">
         <div class="sidebar-user">
-            <div class="user-avatar"><i class="bi bi-person-fill"></i></div>
-            <div class="user-info">
-                <div class="user-name" id="sidebarUserName">Administrador</div>
-                <div class="user-role" id="sidebarUserRole">Admin</div>
+
+            <div class="user-avatar">
+                <i class="bi bi-person-fill"></i>
             </div>
-            <button class="btn btn-icon" onclick="Auth.logout()" title="Cerrar sesión">
-                <i class="bi bi-box-arrow-right" style="color:#b8c2d4;"></i>
+
+            <div class="user-info">
+                <div class="user-name" id="sidebarUserName">
+                    Administrador
+                </div>
+
+                <div class="user-role" id="sidebarUserRole">
+                    Admin
+                </div>
+            </div>
+
+            <button
+                    type="button"
+                    class="btn btn-icon"
+                    id="btnCambiarMiPassword"
+                    title="Cambiar mi contraseña">
+
+                <i
+                        class="bi bi-key-fill"
+                        style="color:#b8c2d4;">
+                </i>
             </button>
+
+            <button
+                    type="button"
+                    class="btn btn-icon"
+                    onclick="Auth.logout()"
+                    title="Cerrar sesión">
+
+                <i
+                        class="bi bi-box-arrow-right"
+                        style="color:#b8c2d4;">
+                </i>
+            </button>
+
         </div>
     </div>
 </aside>
+
+<div class="modal fade" id="modalMiPassword" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-key-fill me-1"></i>
+                    Cambiar mi contraseña
+                </h5>
+
+                <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <form id="formMiPassword" novalidate>
+
+                    <div class="mb-3">
+                        <label
+                                for="miPasswordActual"
+                                class="form-label">
+                            Contraseña actual
+                        </label>
+
+                        <input
+                                type="password"
+                                class="form-control"
+                                id="miPasswordActual"
+                                autocomplete="current-password"
+                                required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label
+                                for="miNuevaPassword"
+                                class="form-label">
+                            Nueva contraseña
+                        </label>
+
+                        <input
+                                type="password"
+                                class="form-control"
+                                id="miNuevaPassword"
+                                minlength="6"
+                                autocomplete="new-password"
+                                required>
+                    </div>
+
+                    <div>
+                        <label
+                                for="miConfirmarPassword"
+                                class="form-label">
+                            Confirmar nueva contraseña
+                        </label>
+
+                        <input
+                                type="password"
+                                class="form-control"
+                                id="miConfirmarPassword"
+                                minlength="6"
+                                autocomplete="new-password"
+                                required>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+
+                <button
+                        type="button"
+                        class="btn btn-brand"
+                        id="btnGuardarMiPassword">
+
+                    <i class="bi bi-check-circle me-1"></i>
+                    Actualizar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>

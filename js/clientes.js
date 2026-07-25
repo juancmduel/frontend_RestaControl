@@ -19,9 +19,15 @@
 
     document.addEventListener('DOMContentLoaded', init);
 
-    function init() {
+    async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
-        loadClientes();
+        await loadClientes();
     }
 
     function bindEvents() {
@@ -89,7 +95,12 @@
         setTableLoading(true);
 
         try {
-            const response = await fetch(`${API_CLIENTES}?${params.toString()}`);
+            const response = await fetch(
+                `${API_CLIENTES}?${params.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
             if (!response.ok) throw new Error(payload?.message || 'No se pudo listar clientes.');
 
@@ -241,6 +252,7 @@
         try {
             const response = await fetch(url, {
                 method: isEdit ? 'PUT' : 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
@@ -273,7 +285,8 @@
 
         try {
             const response = await fetch(`${API_CLIENTES}/${encodeURIComponent(state.deletingCliente.id)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             });
             const payload = await safeJson(response);
             if (!response.ok) throw new Error(payload?.message || 'No se pudo eliminar el cliente.');
@@ -291,6 +304,7 @@
         try {
             const response = await fetch(`${API_CLIENTES}/${encodeURIComponent(id)}/estado`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ activo: !activoActual })
             });
@@ -309,7 +323,9 @@
         if (local) return local;
 
         try {
-            const response = await fetch(`${API_CLIENTES}/${encodeURIComponent(id)}`);
+            const response = await fetch(`${API_CLIENTES}/${encodeURIComponent(id)}`, {
+                credentials: 'include'
+            });
             const payload = await safeJson(response);
             if (!response.ok) throw new Error(payload?.message || 'No se pudo obtener el cliente.');
             return payload?.data || payload;

@@ -13,7 +13,8 @@
         total: 0,
         usuarios: [],
         editingId: null,
-        deletingUser: null
+        deletingUser: null,
+        passwordUser: null
     };
 
     const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE_URL) || 'http://localhost:7070';
@@ -21,9 +22,15 @@
 
     document.addEventListener('DOMContentLoaded', init);
 
-    function init() {
+    async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
-        loadUsuarios();
+        await loadUsuarios();
     }
 
     function bindEvents() {
@@ -61,6 +68,21 @@
             state.page += 1;
             loadUsuarios();
         });
+        byId('btnGuardarPassword')?.addEventListener('click', onGuardarPassword);
+
+        byId('btnVerNuevaPassword')?.addEventListener('click', () => {
+            togglePasswordVisibility(
+                'nuevaPasswordUsuario',
+                'btnVerNuevaPassword'
+            );
+        });
+
+        byId('btnVerConfirmarPassword')?.addEventListener('click', () => {
+            togglePasswordVisibility(
+                'confirmarPasswordUsuario',
+                'btnVerConfirmarPassword'
+            );
+        });
 
         byId('btnNuevoUsuario')?.addEventListener('click', () => openForm());
         byId('btnGuardarUsuario')?.addEventListener('click', onGuardarUsuario);
@@ -81,10 +103,16 @@
 
             if (action === 'view') {
                 await openView(id);
+
             } else if (action === 'edit') {
                 await openForm(id);
+
             } else if (action === 'delete') {
                 await openDelete(id);
+
+            } else if (action === 'password') {
+                await openPassword(id);
+
             } else if (action === 'toggle') {
                 await toggleEstado(id, btn.dataset.activo === 'true');
             }
@@ -102,7 +130,12 @@
         if (state.activo) params.set('activo', state.activo === 'activo' ? 'true' : 'false');
 
         try {
-            const response = await fetch(`${API_USERS}?${params.toString()}`);
+            const response = await fetch(
+                `${API_USERS}?${params.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
 
             if (!response.ok) {
@@ -157,6 +190,14 @@
                         <div class="action-buttons">
                             <button class="btn-tbl" title="Ver" data-action="view" data-id="${escapeHtmlAttr(u.id)}"><i class="bi bi-eye text-info"></i></button>
                             <button class="btn-tbl" title="Editar" data-action="edit" data-id="${escapeHtmlAttr(u.id)}"><i class="bi bi-pencil text-warning"></i></button>
+                            <button
+                                class="btn-tbl"
+                                title="Cambiar contraseña"
+                                data-action="password"
+                                data-id="${escapeHtmlAttr(u.id)}">
+
+                                <i class="bi bi-key-fill text-primary"></i>
+                            </button>
                             <button class="btn-tbl" title="${activo ? 'Inactivar' : 'Activar'}" data-action="toggle" data-id="${escapeHtmlAttr(u.id)}" data-activo="${String(activo)}"><i class="bi ${activo ? 'bi-pause-circle text-secondary' : 'bi-play-circle text-success'}"></i></button>
                             <button class="btn-tbl" title="Eliminar" data-action="delete" data-id="${escapeHtmlAttr(u.id)}"><i class="bi bi-trash text-danger"></i></button>
                         </div>
@@ -273,6 +314,7 @@
         try {
             const response = await fetch(url, {
                 method: isUpdate ? 'PUT' : 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -289,6 +331,174 @@
             showInfo(data?.message || (isUpdate ? 'Usuario actualizado.' : 'Usuario creado.'));
         } catch (error) {
             showError(error.message || 'No se pudo guardar el usuario.');
+        }
+    }
+
+    async function openPassword(id) {
+        const user = await getUsuarioById(id);
+
+        if (!user) {
+            return;
+        }
+
+        state.passwordUser = user;
+
+        const form = byId('formPassword');
+        form?.classList.remove('was-validated');
+
+        setValue('passwordUsuarioId', String(user.id));
+        setValue('nuevaPasswordUsuario', '');
+        setValue('confirmarPasswordUsuario', '');
+
+        setText(
+            'passwordUsuarioNombre',
+            `${user.nombres || ''} ${user.apellidos || ''}`.trim()
+                || user.username
+                || '-'
+        );
+
+        setPasswordVisibility(
+            'nuevaPasswordUsuario',
+            'btnVerNuevaPassword',
+            false
+        );
+
+        setPasswordVisibility(
+            'confirmarPasswordUsuario',
+            'btnVerConfirmarPassword',
+            false
+        );
+
+        showModal('modalPassword');
+    }
+
+    async function onGuardarPassword() {
+        const form = byId('formPassword');
+        form?.classList.add('was-validated');
+
+        const id = String(
+            byId('passwordUsuarioId')?.value || ''
+        ).trim();
+
+        const password = String(
+            byId('nuevaPasswordUsuario')?.value || ''
+        );
+
+        const confirmacion = String(
+            byId('confirmarPasswordUsuario')?.value || ''
+        );
+
+        if (!id) {
+            showError('No se pudo identificar al usuario.');
+            return;
+        }
+
+        if (!password || !confirmacion) {
+            showError('Completa los dos campos de contraseña.');
+            return;
+        }
+
+        if (password.length < 6) {
+            showError('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+
+        if (password !== confirmacion) {
+            showError('Las contraseñas no coinciden.');
+            return;
+        }
+
+        const button = byId('btnGuardarPassword');
+        const originalHtml = button?.innerHTML;
+
+        try {
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = `
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    Actualizando...
+                `;
+            }
+
+            const response = await fetch(
+                `${API_USERS}/${encodeURIComponent(id)}/password`,
+                {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        password: password
+                    })
+                }
+            );
+
+            const data = await safeJson(response);
+
+            if (!response.ok) {
+                throw new Error(
+                    data?.message
+                    || 'No se pudo actualizar la contraseña.'
+                );
+            }
+
+            state.passwordUser = null;
+
+            hideModal('modalPassword');
+
+            showInfo(
+                data?.message
+                || 'Contraseña actualizada correctamente.'
+            );
+
+        } catch (error) {
+            showError(
+                error.message
+                || 'No se pudo actualizar la contraseña.'
+            );
+
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerHTML =
+                    originalHtml
+                    || '<i class="bi bi-check-circle me-1"></i>Actualizar';
+            }
+        }
+    }
+
+
+    function togglePasswordVisibility(inputId, buttonId) {
+        const input = byId(inputId);
+
+        if (!input) {
+            return;
+        }
+
+        setPasswordVisibility(
+            inputId,
+            buttonId,
+            input.type === 'password'
+        );
+    }
+
+    function setPasswordVisibility(inputId, buttonId, visible) {
+        const input = byId(inputId);
+        const button = byId(buttonId);
+
+        if (!input) {
+            return;
+        }
+
+        input.type = visible ? 'text' : 'password';
+
+        const icon = button?.querySelector('i');
+
+        if (icon) {
+            icon.className = visible
+                ? 'bi bi-eye-slash'
+                : 'bi bi-eye';
         }
     }
 
@@ -317,7 +527,8 @@
         try {
             const response = await fetch(`${API_USERS}/${encodeURIComponent(state.deletingUser.id)}`, {
                 method: 'DELETE',
-                headers
+                headers,
+                credentials: 'include'
             });
 
             const data = await safeJson(response);
@@ -338,6 +549,7 @@
         try {
             const response = await fetch(`${API_USERS}/${encodeURIComponent(id)}/estado`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -361,7 +573,9 @@
         if (local) return local;
 
         try {
-            const response = await fetch(`${API_USERS}/${encodeURIComponent(id)}`);
+            const response = await fetch(`${API_USERS}/${encodeURIComponent(id)}`, {
+                credentials: 'include'
+            });
             const data = await safeJson(response);
             if (!response.ok) throw new Error(data?.message || 'No se pudo obtener el usuario.');
             return data?.data || data;

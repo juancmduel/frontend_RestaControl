@@ -17,6 +17,12 @@
     document.addEventListener('DOMContentLoaded', () => { void init(); });
 
     async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
         await render();
         startAutoRefresh();

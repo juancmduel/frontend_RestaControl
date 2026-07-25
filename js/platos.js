@@ -25,9 +25,18 @@
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
+
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         await loadCategorias();
+
         bindEvents();
-        loadPlatos();
+
+        await loadPlatos();
     }
 
     function bindEvents() {
@@ -100,7 +109,12 @@
 
     async function loadCategorias() {
         try {
-            const res  = await fetch(`${API_CATS}?page=1&size=100&activo=true`);
+            const res = await fetch(
+                `${API_CATS}?page=1&size=100&activo=true`,
+                {
+                    credentials: 'include'
+                }
+            );
             const data = await safeJson(res);
             state.categorias = Array.isArray(data)
                 ? data
@@ -138,7 +152,12 @@
         setTableLoading(true);
 
         try {
-            const res     = await fetch(`${API_PLATOS}?${params.toString()}`);
+            const res = await fetch(
+                `${API_PLATOS}?${params.toString()}`,
+                {
+                    credentials:'include'
+                }
+            );
             const payload = await safeJson(res);
 
             if (!res.ok) throw new Error(payload?.message || 'No se pudo obtener la lista de platos.');
@@ -322,10 +341,13 @@
         const url      = isUpdate ? `${API_PLATOS}/${encodeURIComponent(id)}` : API_PLATOS;
 
         try {
-            const res  = await fetch(url, {
-                method:  isUpdate ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(payload)
+            const res  = await fetch(url,{
+                method:isUpdate ? 'PUT' : 'POST',
+                credentials:'include',
+                headers:{
+                    'Content-Type':'application/json'
+                },
+                body:JSON.stringify(payload)
             });
             const data = await safeJson(res);
             if (!res.ok) throw new Error(data?.message || 'No se pudo guardar el plato.');
@@ -355,9 +377,13 @@
     async function onEliminarPlato() {
         if (!state.deletingPlato) return;
         try {
-            const res  = await fetch(`${API_PLATOS}/${encodeURIComponent(state.deletingPlato.id)}`, {
-                method: 'DELETE'
-            });
+            const res = await fetch(
+                `${API_PLATOS}/${encodeURIComponent(state.deletingPlato.id)}`,
+                {
+                    method: 'DELETE',
+                    credentials: 'include'
+                }
+            );
             const data = await safeJson(res);
             if (!res.ok) throw new Error(data?.message || 'No se pudo eliminar el plato.');
 
@@ -374,11 +400,19 @@
 
     async function toggleEstado(id, activoActual) {
         try {
-            const res  = await fetch(`${API_PLATOS}/${encodeURIComponent(id)}/estado`, {
-                method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ activo: !activoActual })
-            });
+            const res = await fetch(
+                `${API_PLATOS}/${encodeURIComponent(id)}/estado`,
+                {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        activo: !activoActual
+                    })
+                }
+            );
             const data = await safeJson(res);
             if (!res.ok) throw new Error(data?.message || 'No se pudo actualizar el estado.');
             await loadPlatos();
@@ -390,11 +424,19 @@
 
     async function toggleDisponible(id, disponibleActual) {
         try {
-            const res  = await fetch(`${API_PLATOS}/${encodeURIComponent(id)}/disponibilidad`, {
-                method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ disponible: !disponibleActual })
-            });
+            const res = await fetch(
+                `${API_PLATOS}/${encodeURIComponent(id)}/disponibilidad`,
+                {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        disponible: !disponibleActual
+                    })
+                }
+            );
             const data = await safeJson(res);
             if (!res.ok) throw new Error(data?.message || 'No se pudo actualizar la disponibilidad.');
             await loadPlatos();
@@ -410,7 +452,12 @@
         const local = state.platos.find((p) => String(p.id) === String(id));
         if (local) return local;
         try {
-            const res  = await fetch(`${API_PLATOS}/${encodeURIComponent(id)}`);
+            const res = await fetch(
+                `${API_PLATOS}/${encodeURIComponent(id)}`,
+                {
+                    credentials: 'include'
+                }
+            );
             const data = await safeJson(res);
             if (!res.ok) throw new Error(data?.message || 'No se pudo obtener el plato.');
             return data?.data || data;

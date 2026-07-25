@@ -1,307 +1,897 @@
 /* =====================================================
-   RestaControl — Pedidos por Mesa
-   Muestra mesas ocupadas y detalle en modal
+   RestaControl — Reporte de Consumos por Mesa
    ===================================================== */
 
 (() => {
     const state = {
-        search: ''
+        page: 1,
+        size: 10,
+        total: 0,
+        rows: [],
+        mesas: []
     };
 
-    document.addEventListener('DOMContentLoaded', init);
+    const API_BASE = window.APP_CONFIG?.API_BASE_URL
+        ? String(window.APP_CONFIG.API_BASE_URL).replace(/\/+$/, '')
+        : 'http://localhost:7070';
 
-    function init() {
+    const API_REPORTE = `${API_BASE}/api/reportes/consumos-mesa`;
+    const API_MESAS = `${API_BASE}/api/mesas`;
+
+    async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
-        renderBoard();
+        setDefaultDates();
+
+        await loadMesas();
+        await loadConsumos();
     }
 
     function bindEvents() {
-        const busqueda = byId('busquedaMesaPedido');
-        const btnActualizar = byId('btnActualizarMesasPedido');
-        const board = byId('mesasPedidoBoard');
-
-        if (busqueda) {
-            busqueda.addEventListener('input', (event) => {
-                state.search = event.target.value.trim().toLowerCase();
-                renderBoard();
+        byId('btnBuscarConsumos')
+            ?.addEventListener('click', () => {
+                state.page = 1;
+                loadConsumos();
             });
-        }
 
-        if (btnActualizar) {
-            btnActualizar.addEventListener('click', renderBoard);
-        }
+        byId('btnLimpiarFiltrosConsumos')
+            ?.addEventListener('click', limpiarFiltros);
 
-        if (board) {
-            board.addEventListener('click', (event) => {
-                const card = event.target.closest('[data-atencion-id]');
-                if (!card) return;
-                openDetailModal(Number(card.dataset.atencionId));
+        byId('btnExportarConsumos')
+            ?.addEventListener('click', exportarExcel);
+
+        byId('btnPrevConsumos')
+            ?.addEventListener('click', event => {
+                event.preventDefault();
+
+                if (state.page <= 1) {
+                    return;
+                }
+
+                state.page -= 1;
+                loadConsumos();
             });
+
+        byId('btnNextConsumos')
+            ?.addEventListener('click', event => {
+                event.preventDefault();
+
+                if (state.page >= getTotalPages()) {
+                    return;
+                }
+
+                state.page += 1;
+                loadConsumos();
+            });
+
+        byId('busquedaConsumos')
+            ?.addEventListener('keydown', event => {
+                if (event.key !== 'Enter') {
+                    return;
+                }
+
+                event.preventDefault();
+                state.page = 1;
+                loadConsumos();
+            });
+
+        byId('consumosMesaBody')
+            ?.addEventListener('click', event => {
+                const button = event.target.closest(
+                    '[data-action="view"][data-id]'
+                );
+
+                if (!button) {
+                    return;
+                }
+
+                openDetalle(button.dataset.id);
+            });
+    }
+
+    function setDefaultDates() {
+        const hasta = new Date();
+        const desde = new Date();
+
+        desde.setDate(hasta.getDate() - 7);
+
+        setValue(
+            'filtroFechaDesde',
+            formatDateInput(desde)
+        );
+
+        setValue(
+            'filtroFechaHasta',
+            formatDateInput(hasta)
+        );
+    }
+
+    async function loadMesas() {
+        try {
+            const response = await fetch(
+                `${API_MESAS}?activo=true&page=1&size=200`,
+                {
+                    credentials: 'include'
+                }
+            );
+
+            const payload = await safeJson(response);
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudieron cargar las mesas.'
+                );
+            }
+
+            state.mesas = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.data)
+                    ? payload.data
+                    : [];
+
+            renderMesaOptions();
+        } catch (error) {
+            console.error('Error cargando mesas:', error);
+            state.mesas = [];
+            renderMesaOptions();
         }
     }
 
-    function renderBoard() {
-        const board = byId('mesasPedidoBoard');
-        const count = byId('mesasPedidoCount');
-        if (!board) return;
+    function renderMesaOptions() {
+        const select = byId('filtroMesaConsumo');
 
-        const rows = buildOccupiedRows();
-        const filtered = applySearch(rows);
+        if (!select) {
+            return;
+        }
 
-        if (!filtered.length) {
-            board.innerHTML = `
-                <div class="text-center text-muted py-4 border rounded-3">
-                    No hay mesas ocupadas para mostrar.
-                </div>
+        const options = state.mesas.map(mesa => `
+            <option value="${escapeHtmlAttr(mesa.id)}">
+                ${escapeHtml(mesa.codigo || 'Mesa')}
+            </option>
+        `).join('');
+
+        select.innerHTML = `
+            <option value="">Todas las mesas</option>
+            ${options}
+        `;
+    }
+
+    function buildParams(includePagination = true) {
+        const params = new URLSearchParams();
+
+        const fechaDesde = getValue('filtroFechaDesde');
+        const fechaHasta = getValue('filtroFechaHasta');
+        const idMesa = getValue('filtroMesaConsumo');
+        const estado = getValue('filtroEstadoConsumo');
+        const search = getValue('busquedaConsumos');
+
+        if (fechaDesde) {
+            params.set('fechaDesde', fechaDesde);
+        }
+
+        if (fechaHasta) {
+            params.set('fechaHasta', fechaHasta);
+        }
+
+        if (idMesa) {
+            params.set('idMesa', idMesa);
+        }
+
+        if (estado) {
+            params.set('estado', estado);
+        }
+
+        if (search) {
+            params.set('search', search);
+        }
+
+        if (includePagination) {
+            params.set('page', String(state.page));
+            params.set('size', String(state.size));
+        }
+
+        return params;
+    }
+
+    async function loadConsumos() {
+        setLoading();
+
+        try {
+            const params = buildParams();
+
+            const response = await fetch(
+                `${API_REPORTE}?${params.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
+
+            const payload = await safeJson(response);
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo cargar el reporte de consumos.'
+                );
+            }
+
+            state.rows = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.data)
+                    ? payload.data
+                    : [];
+
+            state.total = Number(
+                payload?.total ?? state.rows.length
+            );
+
+            if (Number(payload?.page) > 0) {
+                state.page = Number(payload.page);
+            }
+
+            if (Number(payload?.size) > 0) {
+                state.size = Number(payload.size);
+            }
+
+            renderTable();
+            renderSummary(payload?.summary || {});
+            renderPagination();
+        } catch (error) {
+            console.error(
+                'Error cargando consumos por mesa:',
+                error
+            );
+
+            state.rows = [];
+            state.total = 0;
+
+            showTableError(
+                error.message ||
+                'No se pudo cargar el reporte.'
+            );
+
+            renderSummary({});
+            renderPagination();
+        }
+    }
+
+    function renderTable() {
+        const tbody = byId('consumosMesaBody');
+
+        if (!tbody) {
+            return;
+        }
+
+        if (!state.rows.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11"
+                        class="text-center text-muted py-4">
+                        No existen consumos para los filtros seleccionados.
+                    </td>
+                </tr>
             `;
-        } else {
-            board.innerHTML = filtered.map((row) => `
-                <article class="mesa-card" data-atencion-id="${row.atencionId}">
-                    <div class="mesa-card-head">
-                        <div class="mesa-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div>
-                        <div>
-                            <div class="mesa-code">${escapeHtml(row.mesaCodigo)}</div>
-                            <div class="mesa-sub">${escapeHtml(row.mesaUbicacion)}</div>
-                        </div>
-                    </div>
-                    <div class="mesa-card-body">
-                        <div class="mesa-line"><span>Cliente</span><strong>${escapeHtml(row.clienteNombre)}</strong></div>
-                        <div class="mesa-line"><span>Mozo</span><strong>${escapeHtml(row.mozoNombre)}</strong></div>
-                        <div class="mesa-line"><span>Apertura</span><strong>${escapeHtml(row.aperturaTexto)}</strong></div>
-                    </div>
-                    <div class="mesa-card-foot">
-                        <span class="badge-pill bp-info"><i class="bi bi-receipt"></i>${row.totalPedidos} pedidos</span>
-                        <span class="badge-pill bp-warning"><i class="bi bi-basket2"></i>${row.totalItems} ítems</span>
-                    </div>
-                </article>
-            `).join('');
+
+            setText(
+                'consumosMesaCount',
+                'Mostrando 0 registros'
+            );
+
+            return;
         }
 
-        if (count) {
-            count.textContent = `Mostrando ${filtered.length} mesas ocupadas`;
+        tbody.innerHTML = state.rows.map(row => `
+            <tr>
+                <td>
+                    ${escapeHtml(
+                        formatDateTime(
+                            row.fechaCierre ||
+                            row.fechaApertura
+                        )
+                    )}
+                </td>
+
+                <td>
+                    <span class="record-id">
+                        ${escapeHtml(
+                            row.codigoAtencion ||
+                            row.idAtencion ||
+                            '-'
+                        )}
+                    </span>
+                </td>
+
+                <td>
+                    ${escapeHtml(row.mesaCodigo || '-')}
+                </td>
+
+                <td>
+                    ${escapeHtml(row.clienteNombre || '-')}
+                </td>
+
+                <td>
+                    ${escapeHtml(row.mozoNombre || '-')}
+                </td>
+
+                <td class="text-center">
+                    ${Number(row.cantidadItems || 0)}
+                </td>
+
+                <td class="text-end">
+                    ${money(row.subtotal)}
+                </td>
+
+                <td class="text-end">
+                    ${money(row.propina)}
+                </td>
+
+                <td class="text-end fw-semibold">
+                    ${money(row.total)}
+                </td>
+
+                <td>
+                    ${renderEstadoBadge(
+                        row.estadoPago ||
+                        row.estadoAtencion
+                    )}
+                </td>
+
+                <td class="text-end">
+                    <button
+                        type="button"
+                        class="btn-tbl"
+                        title="Ver detalle"
+                        data-action="view"
+                        data-id="${escapeHtmlAttr(row.idAtencion)}">
+
+                        <i class="bi bi-eye text-info"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        setText(
+            'consumosMesaCount',
+            `Mostrando ${state.rows.length} de ${state.total} registros`
+        );
+    }
+
+    function renderSummary(summary) {
+        const atenciones = Number(
+            summary.atenciones ?? state.total ?? 0
+        );
+
+        const totalConsumido = Number(
+            summary.totalConsumido ?? 0
+        );
+
+        const ticketPromedio = Number(
+            summary.ticketPromedio ??
+            (
+                atenciones > 0
+                    ? totalConsumido / atenciones
+                    : 0
+            )
+        );
+
+        setText(
+            'kpiAtenciones',
+            String(atenciones)
+        );
+
+        setText(
+            'kpiTotalConsumido',
+            money(totalConsumido)
+        );
+
+        setText(
+            'kpiTicketPromedio',
+            money(ticketPromedio)
+        );
+
+        setText(
+            'kpiMesaMayorConsumo',
+            summary.mesaMayorConsumo || '-'
+        );
+
+        setText(
+            'kpiMesaMayorConsumoMonto',
+            summary.mesaMayorConsumo
+                ? money(summary.mesaMayorConsumoMonto)
+                : 'Sin datos'
+        );
+    }
+
+    async function openDetalle(idAtencion) {
+        if (!idAtencion) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `${API_REPORTE}/${encodeURIComponent(idAtencion)}`,
+                {
+                    credentials: 'include'
+                }
+            );
+
+            const payload = await safeJson(response);
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo obtener el detalle del consumo.'
+                );
+            }
+
+            const data = payload?.data || payload;
+
+            renderDetalleModal(data);
+        } catch (error) {
+            window.alert(
+                error.message ||
+                'No se pudo abrir el detalle.'
+            );
         }
     }
 
-    function buildOccupiedRows() {
-        const atenciones = DB.getAll('atenciones');
-        const mesas = DB.getAll('mesas');
-        const clientes = DB.getAll('clientes');
-        const usuarios = DB.getAll('usuarios');
-        const pedidos = DB.getAll('pedidos');
-        const detalles = DB.getAll('detallePedidos');
+    function renderDetalleModal(data) {
+        setText(
+            'modalConsumoTitulo',
+            data.codigoAtencion ||
+            data.idAtencion ||
+            '-'
+        );
 
-        const mesasById = new Map(mesas.map((mesa) => [Number(mesa.id), mesa]));
-        const clientesById = new Map(clientes.map((cliente) => [Number(cliente.id), cliente]));
-        const usuariosById = new Map(usuarios.map((usuario) => [Number(usuario.id), usuario]));
+        setHtml(
+            'modalConsumoEstadoBadge',
+            renderEstadoBadge(
+                data.estadoPago ||
+                data.estadoAtencion
+            )
+        );
 
-        return atenciones
-            .filter(isAtencionOcupada)
-            .map((atencion) => {
-                const mesa = mesasById.get(Number(atencion.id_mesa));
-                const cliente = clientesById.get(Number(atencion.id_cliente));
-                const mozo = usuariosById.get(Number(atencion.id_mozo));
-                const pedidosMesa = pedidos.filter((pedido) => Number(pedido.id_atencion) === Number(atencion.id));
-                const pedidoIds = new Set(pedidosMesa.map((pedido) => Number(pedido.id)));
-                const items = detalles.filter((detalle) => pedidoIds.has(Number(detalle.id_pedido)));
+        setHtml(
+            'modalConsumoAtencionInfo',
+            `
+                <div class="detail-row">
+                    <span class="detail-lbl">Mesa</span>
+                    <span class="detail-val">
+                        ${escapeHtml(data.mesaCodigo || '-')}
+                    </span>
+                </div>
 
-                return {
-                    atencionId: Number(atencion.id),
-                    mesaCodigo: mesa ? mesa.codigo : 'Sin mesa',
-                    mesaUbicacion: mesa ? mesa.ubicacion : 'Sin ubicación',
-                    clienteNombre: cliente ? `${cliente.nombres} ${cliente.apellidos}` : 'Cliente no encontrado',
-                    mozoNombre: mozo ? `${mozo.nombres} ${mozo.apellidos}` : 'Sin mozo',
-                    aperturaTexto: formatDateTime(atencion.apertura_en),
-                    aperturaTs: toTimestamp(atencion.apertura_en),
-                    totalPedidos: pedidosMesa.length,
-                    totalItems: items.reduce((sum, item) => sum + Number(item.cantidad || 0), 0)
-                };
-            })
-            .sort((a, b) => a.aperturaTs - b.aperturaTs);
-    }
+                <div class="detail-row">
+                    <span class="detail-lbl">Mozo</span>
+                    <span class="detail-val">
+                        ${escapeHtml(data.mozoNombre || '-')}
+                    </span>
+                </div>
 
-    function applySearch(rows) {
-        if (!state.search) return rows;
+                <div class="detail-row">
+                    <span class="detail-lbl">Apertura</span>
+                    <span class="detail-val">
+                        ${escapeHtml(formatDateTime(data.fechaApertura))}
+                    </span>
+                </div>
 
-        return rows.filter((row) => {
-            return row.mesaCodigo.toLowerCase().includes(state.search)
-                || row.mesaUbicacion.toLowerCase().includes(state.search)
-                || row.clienteNombre.toLowerCase().includes(state.search)
-                || row.mozoNombre.toLowerCase().includes(state.search);
-        });
-    }
+                <div class="detail-row">
+                    <span class="detail-lbl">Cierre</span>
+                    <span class="detail-val">
+                        ${escapeHtml(formatDateTime(data.fechaCierre))}
+                    </span>
+                </div>
+            `
+        );
 
-    function openDetailModal(atencionId) {
-        const data = buildModalData(atencionId);
-        if (!data) return;
+        setHtml(
+            'modalConsumoClienteInfo',
+            `
+                <div class="detail-row">
+                    <span class="detail-lbl">Nombre</span>
+                    <span class="detail-val">
+                        ${escapeHtml(data.clienteNombre || '-')}
+                    </span>
+                </div>
 
-        setText('modalMesaTitulo', `${data.mesaCodigo} · ${data.clienteNombre}`);
-        setHtml('modalMesaEstadoBadge', estadoBadge(data.estadoAtencion, data.estadoPago));
+                <div class="detail-row">
+                    <span class="detail-lbl">Documento</span>
+                    <span class="detail-val">
+                        ${escapeHtml(data.clienteDocumento || '-')}
+                    </span>
+                </div>
+            `
+        );
 
-        setHtml('clienteInfoBlock', `
-            <div class="detail-row"><span class="detail-lbl">Nombre</span><span class="detail-val fw-semibold">${escapeHtml(data.clienteNombre)}</span></div>
-            <div class="detail-row"><span class="detail-lbl">Documento</span><span class="detail-val">${escapeHtml(data.clienteDocumento)}</span></div>
-            <div class="detail-row"><span class="detail-lbl">Teléfono</span><span class="detail-val">${escapeHtml(data.clienteTelefono)}</span></div>
-        `);
+        setHtml(
+            'modalConsumoTotales',
+            `
+                <div class="detail-row">
+                    <span class="detail-lbl">Subtotal</span>
+                    <span class="detail-val">
+                        ${money(data.subtotal)}
+                    </span>
+                </div>
 
-        setHtml('resumenAtencionBlock', `
-            <div class="detail-row"><span class="detail-lbl">Atención</span><span class="detail-val">#${data.atencionId}</span></div>
-            <div class="detail-row"><span class="detail-lbl">Mesa</span><span class="detail-val">${escapeHtml(data.mesaCodigo)} · ${escapeHtml(data.mesaUbicacion)}</span></div>
-            <div class="detail-row"><span class="detail-lbl">Mozo</span><span class="detail-val">${escapeHtml(data.mozoNombre)}</span></div>
-            <div class="detail-row"><span class="detail-lbl">Apertura</span><span class="detail-val">${escapeHtml(data.aperturaTexto)}</span></div>
-        `);
+                <div class="detail-row">
+                    <span class="detail-lbl">Propina</span>
+                    <span class="detail-val">
+                        ${money(data.propina)}
+                    </span>
+                </div>
 
-        const tbody = byId('detallePedidosMesaBody');
+                <div class="detail-row">
+                    <span class="detail-lbl">Total</span>
+                    <span class="detail-val fw-bold">
+                        ${money(data.total)}
+                    </span>
+                </div>
+            `
+        );
+
+        const items = Array.isArray(data.items)
+            ? data.items
+            : [];
+
+        const tbody = byId('modalConsumoDetalleBody');
+
         if (tbody) {
-            if (!data.items.length) {
-                tbody.innerHTML = `
+            tbody.innerHTML = items.length
+                ? items.map(item => `
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">No hay pedidos para esta mesa.</td>
+                        <td>
+                            ${escapeHtml(item.nombreItem || '-')}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(item.tipoItem || '-')}
+                        </td>
+
+                        <td class="text-center">
+                            ${Number(item.cantidad || 0)}
+                        </td>
+
+                        <td class="text-end">
+                            ${money(item.precioUnitario)}
+                        </td>
+
+                        <td class="text-end">
+                            ${money(item.descuento)}
+                        </td>
+
+                        <td class="text-end fw-semibold">
+                            ${money(item.subtotal)}
+                        </td>
+                    </tr>
+                `).join('')
+                : `
+                    <tr>
+                        <td colspan="6"
+                            class="text-center text-muted py-4">
+                            No hay productos registrados.
+                        </td>
                     </tr>
                 `;
-            } else {
-                tbody.innerHTML = data.items.map((item) => `
-                    <tr>
-                        <td><span class="record-id">#${item.pedidoId}</span></td>
-                        <td>
-                            <div class="fw-semibold">${escapeHtml(item.platoNombre)}</div>
-                            <div class="text-muted small">${escapeHtml(item.horaPedido)}</div>
-                        </td>
-                        <td class="text-center">${item.cantidad}</td>
-                        <td class="text-end">${money(item.precioUnit)}</td>
-                        <td class="text-end fw-semibold">${money(item.subtotal)}</td>
-                    </tr>
-                `).join('');
+        }
+
+        setText(
+            'modalConsumoTotal',
+            money(data.total)
+        );
+
+        setText(
+            'modalConsumoObservaciones',
+            data.observaciones ||
+            'Sin observaciones.'
+        );
+
+        const modal = byId('modalConsumoMesa');
+
+        if (
+            modal &&
+            typeof bootstrap !== 'undefined'
+        ) {
+            bootstrap.Modal
+                .getOrCreateInstance(modal)
+                .show();
+        }
+    }
+
+    async function exportarExcel() {
+        const params = buildParams(false);
+
+        try {
+            const response = await fetch(
+                `${API_REPORTE}/exportar-excel?${params.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
+
+            if (!response.ok) {
+                const payload = await safeJson(response);
+
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo exportar el reporte.'
+                );
             }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = 'consumos_por_mesa.xlsx';
+
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            window.alert(
+                error.message ||
+                'No se pudo exportar el reporte.'
+            );
+        }
+    }
+
+    function limpiarFiltros() {
+        setDefaultDates();
+        setValue('filtroMesaConsumo', '');
+        setValue('filtroEstadoConsumo', '');
+        setValue('busquedaConsumos', '');
+
+        state.page = 1;
+        loadConsumos();
+    }
+
+    function renderPagination() {
+        const totalPages = getTotalPages();
+        const currentPage = totalPages === 0
+            ? 0
+            : state.page;
+
+        setText(
+            'lblPaginaConsumos',
+            totalPages === 0
+                ? '-'
+                : `${currentPage} / ${totalPages}`
+        );
+
+        byId('liPrevConsumos')
+            ?.classList.toggle(
+                'disabled',
+                currentPage <= 1
+            );
+
+        byId('liNextConsumos')
+            ?.classList.toggle(
+                'disabled',
+                totalPages === 0 ||
+                currentPage >= totalPages
+            );
+    }
+
+    function getTotalPages() {
+        if (!state.total || !state.size) {
+            return 0;
         }
 
-        setText('totalMesaMonto', money(data.total));
-        setText('modalMesaNotas', data.notas || 'Sin notas.');
-
-        const modalEl = byId('modalMesaDetalle');
-        if (!modalEl || typeof bootstrap === 'undefined') return;
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return Math.ceil(
+            state.total / state.size
+        );
     }
 
-    function buildModalData(atencionId) {
-        const atencion = DB.getById('atenciones', atencionId);
-        if (!atencion) return null;
+    function setLoading() {
+        const tbody = byId('consumosMesaBody');
 
-        const mesa = DB.getById('mesas', atencion.id_mesa);
-        const cliente = DB.getById('clientes', atencion.id_cliente);
-        const mozo = DB.getById('usuarios', atencion.id_mozo);
-        const pedidos = DB.getAll('pedidos').filter((pedido) => Number(pedido.id_atencion) === Number(atencion.id));
-        const detalles = DB.getAll('detallePedidos');
-        const platosById = new Map(DB.getAll('platos').map((plato) => [Number(plato.id), plato]));
+        if (!tbody) {
+            return;
+        }
 
-        const items = [];
-        const notas = [];
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="11"
+                    class="text-center text-muted py-4">
 
-        pedidos.forEach((pedido) => {
-            const lineas = detalles.filter((detalle) => Number(detalle.id_pedido) === Number(pedido.id));
-            if (pedido.notas) notas.push(pedido.notas);
+                    <span class="spinner-border spinner-border-sm me-2">
+                    </span>
 
-            lineas.forEach((linea) => {
-                const plato = platosById.get(Number(linea.id_plato));
-                const cantidad = Number(linea.cantidad || 0);
-                const precioUnit = Number(linea.precio_unit || 0);
-                const descuento = Number(linea.descuento || 0);
-                const subtotal = round2(cantidad * precioUnit * (1 - descuento / 100));
-
-                items.push({
-                    pedidoId: Number(pedido.id),
-                    platoNombre: plato ? plato.nombre : 'Plato no encontrado',
-                    cantidad,
-                    precioUnit,
-                    subtotal,
-                    horaPedido: formatDateTime(pedido.creado_en)
-                });
-            });
-        });
-
-        return {
-            atencionId: Number(atencion.id),
-            estadoAtencion: atencion.estado || 'En curso',
-            estadoPago: atencion.estado_pago || 'Pendiente',
-            mesaCodigo: mesa ? mesa.codigo : 'Sin mesa',
-            mesaUbicacion: mesa ? mesa.ubicacion : 'Sin ubicación',
-            clienteNombre: cliente ? `${cliente.nombres} ${cliente.apellidos}` : 'Cliente no encontrado',
-            clienteDocumento: cliente ? cliente.documento : '-',
-            clienteTelefono: cliente ? cliente.telefono : '-',
-            mozoNombre: mozo ? `${mozo.nombres} ${mozo.apellidos}` : 'Sin mozo',
-            aperturaTexto: formatDateTime(atencion.apertura_en),
-            items,
-            notas: notas.join(' | '),
-            total: round2(items.reduce((sum, item) => sum + item.subtotal, 0))
-        };
+                    Cargando consumos...
+                </td>
+            </tr>
+        `;
     }
 
-    function isAtencionOcupada(atencion) {
-        const estado = String(atencion.estado || '').toLowerCase();
-        return !(estado.includes('cerrad') || estado.includes('cancel'));
+    function showTableError(message) {
+        const tbody = byId('consumosMesaBody');
+
+        if (!tbody) {
+            return;
+        }
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="11"
+                    class="text-center text-danger py-4">
+
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    ${escapeHtml(message)}
+                </td>
+            </tr>
+        `;
+
+        setText(
+            'consumosMesaCount',
+            'No se pudo cargar el reporte'
+        );
     }
 
-    function estadoBadge(estadoAtencion, estadoPago) {
-        const estado = String(estadoAtencion || '').toLowerCase();
+    async function handleHttpError(
+        response,
+        payload,
+        defaultMessage
+    ) {
+        if (response.status === 401) {
+            setTimeout(
+                () => Auth.logout(),
+                700
+            );
+
+            throw new Error(
+                'Tu sesión ha expirado.'
+            );
+        }
+
+        if (response.status === 403) {
+            throw new Error(
+                payload?.message ||
+                'No tienes permisos para consultar este reporte.'
+            );
+        }
+
+        throw new Error(
+            payload?.message ||
+            defaultMessage
+        );
+    }
+
+    async function safeJson(response) {
+        try {
+            return await response.json();
+        } catch {
+            return null;
+        }
+    }
+
+    function renderEstadoBadge(value) {
+        const estado = String(value || '')
+            .trim()
+            .toLowerCase();
+
+        if (
+            estado.includes('pagad') ||
+            estado.includes('cerrad')
+        ) {
+            return `
+                <span class="badge-pill bp-success">
+                    Pagada
+                </span>
+            `;
+        }
+
         if (estado.includes('cancel')) {
-            return '<span class="badge-pill bp-danger">Cancelada</span>';
+            return `
+                <span class="badge-pill bp-danger">
+                    Cancelada
+                </span>
+            `;
         }
-        if (estado.includes('cerrad')) {
-            return '<span class="badge-pill bp-gray">Cerrada</span>';
-        }
-        const pago = String(estadoPago || '').toLowerCase();
-        if (pago === 'pagado') {
-            return '<span class="badge-pill bp-success">Pagado</span>';
-        }
-        return '<span class="badge-pill bp-warning">En curso</span>';
+
+        return `
+            <span class="badge-pill bp-warning">
+                En curso
+            </span>
+        `;
     }
 
-    function formatDateTime(isoValue) {
-        if (!isoValue) return 'Sin hora';
-        const date = new Date(isoValue);
-        if (Number.isNaN(date.getTime())) return 'Sin hora';
+    function formatDateInput(date) {
+        const year = date.getFullYear();
+        const month = String(
+            date.getMonth() + 1
+        ).padStart(2, '0');
+        const day = String(
+            date.getDate()
+        ).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    }
+
+    function formatDateTime(value) {
+        if (!value) {
+            return '-';
+        }
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
 
         return date.toLocaleString('es-PE', {
             day: '2-digit',
             month: '2-digit',
+            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
         });
-    }
-
-    function toTimestamp(isoValue) {
-        if (!isoValue) return Number.MAX_SAFE_INTEGER;
-        const ts = new Date(isoValue).getTime();
-        return Number.isNaN(ts) ? Number.MAX_SAFE_INTEGER : ts;
     }
 
     function money(value) {
         return `S/ ${Number(value || 0).toFixed(2)}`;
     }
 
-    function round2(value) {
-        return Math.round(Number(value || 0) * 100) / 100;
+    function getValue(id) {
+        return String(
+            byId(id)?.value || ''
+        ).trim();
+    }
+
+    function setValue(id, value) {
+        const element = byId(id);
+
+        if (element) {
+            element.value = value;
+        }
+    }
+
+    function setText(id, value) {
+        const element = byId(id);
+
+        if (element) {
+            element.textContent = value;
+        }
+    }
+
+    function setHtml(id, value) {
+        const element = byId(id);
+
+        if (element) {
+            element.innerHTML = value;
+        }
     }
 
     function byId(id) {
         return document.getElementById(id);
     }
 
-    function setText(id, text) {
-        const el = byId(id);
-        if (el) el.textContent = text;
-    }
-
-    function setHtml(id, html) {
-        const el = byId(id);
-        if (el) el.innerHTML = html;
-    }
-
-    function escapeHtml(text) {
-        return String(text || '')
+    function escapeHtml(value) {
+        return String(value ?? '')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
     }
+
+    function escapeHtmlAttr(value) {
+        return escapeHtml(value)
+            .replace(/`/g, '&#096;');
+    }
+
+    window.ReporteConsumosMesa = {
+        init
+    };
 })();

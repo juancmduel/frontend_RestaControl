@@ -24,52 +24,116 @@
 
     document.addEventListener('DOMContentLoaded', init);
 
-    function init() {
+    async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         const btnActualizar = byId('btnActualizarListaMesas');
-        if (btnActualizar) btnActualizar.addEventListener('click', render);
+
+        if (btnActualizar) {
+            btnActualizar.addEventListener('click', render);
+        }
 
         initDateTimeFilters();
 
         const board = byId('listaMesasBoard');
+
         if (board) {
-            board.addEventListener('click', (event) => {
+            board.addEventListener('click', async (event) => {
                 const btn = event.target.closest('[data-mesa-numero]');
-                if (!btn) return;
+
+                if (!btn) {
+                    return;
+                }
+
                 const numero = Number(btn.dataset.mesaNumero);
-                const mesa = state.rows.find((row) => row.numero === numero);
-                if (!mesa) return;
-                handleMesaClick(mesa);
+
+                const mesa = state.rows.find(
+                    (row) => row.numero === numero
+                );
+
+                if (!mesa) {
+                    return;
+                }
+
+                await handleMesaClick(mesa);
             });
         }
 
         if (!apiAvailable()) {
             if (USE_API_ONLY) {
-                console.error('Modo API-only activado pero el backend o ListaMesasApi no está disponible.');
+                console.error(
+                    'Modo API-only activado, pero ListaMesasApi no está disponible.'
+                );
             } else {
                 ensureMesa1Ocupada();
                 ensureDemoReservation();
             }
         }
-        render();
+
+        await render();
     }
 
     async function render() {
         const board = byId('listaMesasBoard');
         const count = byId('listaMesasCount');
-        if (!board) return;
+
+        if (!board) {
+            return;
+        }
+
+        board.innerHTML = `
+            <div class="text-center text-muted py-5 w-100">
+                <div class="spinner-border spinner-border-sm me-2"></div>
+                Cargando mesas...
+            </div>
+        `;
 
         const fechaHoraReferencia = getSelectedFechaHoraIso();
         state.fechaHoraFiltro = fechaHoraReferencia;
 
-        const mesas = await buildBoardMesas(fechaHoraReferencia);
+        const mesas = await buildBoardMesas(
+            fechaHoraReferencia
+        );
+
         state.rows = mesas;
 
+        if (!mesas.length) {
+            board.innerHTML = `
+                <div class="alert alert-warning w-100">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No hay mesas disponibles para mostrar.
+                </div>
+            `;
+
+            renderLegendCounts([]);
+            renderFiltroActual(fechaHoraReferencia);
+
+            if (count) {
+                count.textContent = 'Mostrando 0 mesas';
+            }
+
+            return;
+        }
+
         board.innerHTML = mesas.map((mesa) => `
-            <button class="lm-btn lm-${mesa.estado}" type="button" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(buildTooltipText(mesa))}" data-mesa-numero="${mesa.numero}">
+            <button
+                class="lm-btn lm-${mesa.estado}"
+                type="button"
+                data-bs-toggle="tooltip"
+                data-bs-title="${escapeHtml(buildTooltipText(mesa))}"
+                data-mesa-numero="${mesa.numero}">
+                
                 <span class="lm-icon-wrap">
                     <i class="bi ${mesa.icono}"></i>
                 </span>
-                <span class="lm-code">${mesa.codigo}</span>
+
+                <span class="lm-code">
+                    ${escapeHtml(mesa.codigo)}
+                </span>
             </button>
         `).join('');
 
@@ -78,7 +142,8 @@
         renderFiltroActual(fechaHoraReferencia);
 
         if (count) {
-            count.textContent = `Mostrando ${mesas.length} mesas`; 
+            count.textContent =
+                `Mostrando ${mesas.length} mesas`;
         }
     }
 
@@ -135,7 +200,19 @@
                 return rows;
             } catch (error) {
                 state.dataSource = 'api';
-                console.error('Error cargando tablero desde API:', error);
+
+                console.error(
+                    'Error cargando tablero desde API:',
+                    error
+                );
+
+                const message = extractApiMessage(
+                    error,
+                    'No se pudo cargar la lista de mesas.'
+                );
+
+                showListaMesasError(message);
+
                 return [];
             }
         }
@@ -147,6 +224,25 @@
 
         state.dataSource = 'local';
         return buildBoardMesasLocal(fechaHoraReferencia);
+    }
+
+
+    function showListaMesasError(message) {
+        const board = byId('listaMesasBoard');
+
+        if (!board) {
+            return;
+        }
+
+        board.innerHTML = `
+            <div class="alert alert-danger w-100">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                ${escapeHtml(
+                    message ||
+                    'No se pudo cargar la lista de mesas.'
+                )}
+            </div>
+        `;
     }
 
     function buildBoardMesasLocal(fechaHoraReferencia) {

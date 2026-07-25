@@ -3,142 +3,745 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RestaControl | Pedidos por Mesa</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <title>RestaControl | Consumos por Mesa</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+
     <link href="../css/styles.css" rel="stylesheet">
 </head>
+
 <script src="../js/config.js"></script>
 <script src="../js/footer.js"></script>
+
 <body class="admin-body">
+
 <div id="sidebarMount"></div>
 
 <div class="main-wrapper">
+
     <header class="topbar">
-        <button class="btn btn-icon" id="sidebarToggle"><i class="bi bi-list" style="font-size:1.3rem;"></i></button>
-        <nav aria-label="breadcrumb" class="ms-2 d-none d-sm-block">
+
+        <button
+            type="button"
+            class="btn btn-icon"
+            id="sidebarToggle">
+
+            <i class="bi bi-list" style="font-size:1.3rem;"></i>
+        </button>
+
+        <nav
+            aria-label="breadcrumb"
+            class="ms-2 d-none d-sm-block">
+
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="dashboard.html">Inicio</a></li>
-                <li class="breadcrumb-item active">Pedidos por Mesa</li>
+
+                <li class="breadcrumb-item">
+                    <a href="dashboard.html">
+                        Inicio
+                    </a>
+                </li>
+
+                <li class="breadcrumb-item active">
+                    Consumos por Mesa
+                </li>
+
             </ol>
+
         </nav>
+
         <div class="topbar-right ms-auto d-flex align-items-center gap-3">
-            <span class="topbar-date" id="topbarDate"></span>
+
+            <span
+                class="topbar-date"
+                id="topbarDate">
+            </span>
+
             <div class="dropdown">
-                <button class="btn btn-icon" data-bs-toggle="dropdown"><i class="bi bi-person-circle" style="font-size:1.4rem;color:#7a8898;"></i></button>
+
+                <button
+                    type="button"
+                    class="btn btn-icon"
+                    data-bs-toggle="dropdown">
+
+                    <i
+                        class="bi bi-person-circle"
+                        style="font-size:1.4rem;color:#7a8898;">
+                    </i>
+                </button>
+
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                    <li><div class="d-flex align-items-center gap-2 px-3 py-2">
-                        <div class="user-avatar" style="width:36px;height:36px;flex-shrink:0;"><i class="bi bi-person-fill"></i></div>
-                        <div><div class="fw-semibold small" id="headerUserName">Administrador</div><div class="text-muted" style="font-size:.75rem;" id="headerUserRole">Sistema Activo</div></div>
-                    </div></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="#" onclick="event.preventDefault();Auth.logout()"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</a></li>
+
+                    <li>
+                        <div class="d-flex align-items-center gap-2 px-3 py-2">
+
+                            <div
+                                class="user-avatar"
+                                style="width:36px;height:36px;flex-shrink:0;">
+
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+
+                            <div>
+
+                                <div
+                                    class="fw-semibold small"
+                                    id="headerUserName">
+
+                                    Administrador
+                                </div>
+
+                                <div
+                                    class="text-muted"
+                                    style="font-size:.75rem;"
+                                    id="headerUserRole">
+
+                                    Sistema Activo
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </li>
+
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+
+                    <li>
+
+                        <a
+                            class="dropdown-item text-danger"
+                            href="#"
+                            onclick="event.preventDefault(); Auth.logout();">
+
+                            <i class="bi bi-box-arrow-right me-2"></i>
+                            Cerrar sesión
+                        </a>
+
+                    </li>
+
                 </ul>
+
             </div>
+
         </div>
+
     </header>
 
     <main class="page-content">
+
         <div class="page-header">
+
             <div>
-                <h1 class="page-title"><i class="bi bi-grid-1x2-fill"></i>Pedidos por Mesa</h1>
-                <p class="page-desc">Visualiza mesas ocupadas y consulta rápidamente el detalle de pedidos y datos del cliente.</p>
+
+                <h1 class="page-title">
+
+                    <i class="bi bi-receipt-cutoff"></i>
+                    Reporte de Consumos por Mesa
+
+                </h1>
+
+                <p class="page-desc">
+
+                    Consulta las atenciones y consumos registrados por
+                    fecha, mesa, cliente y estado de pago.
+
+                </p>
+
             </div>
-            <button class="btn btn-brand" id="btnActualizarMesasPedido"><i class="bi bi-arrow-clockwise"></i>Actualizar</button>
+
+            <button
+                type="button"
+                class="btn btn-outline-success"
+                id="btnExportarConsumos">
+
+                <i class="bi bi-file-earmark-excel me-1"></i>
+                Exportar Excel
+
+            </button>
+
+        </div>
+
+        <div class="stats-grid mb-4">
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-blue">
+                    <i class="bi bi-receipt"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Atenciones
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiAtenciones">
+
+                        0
+                    </div>
+
+                    <div class="stat-note">
+                        Registros encontrados
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-green">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Total consumido
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiTotalConsumido">
+
+                        S/ 0.00
+                    </div>
+
+                    <div class="stat-note">
+                        Incluye propina
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-purple">
+                    <i class="bi bi-calculator"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Ticket promedio
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiTicketPromedio">
+
+                        S/ 0.00
+                    </div>
+
+                    <div class="stat-note">
+                        Promedio por atención
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="stat-card">
+
+                <div class="stat-icon si-orange">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                </div>
+
+                <div class="stat-body">
+
+                    <div class="stat-label">
+                        Mesa con mayor consumo
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="kpiMesaMayorConsumo">
+
+                        -
+                    </div>
+
+                    <div
+                        class="stat-note"
+                        id="kpiMesaMayorConsumoMonto">
+
+                        Sin datos
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
 
         <div class="content-card">
+
             <div class="row g-3 mb-4 align-items-end">
-                <div class="col-md-5">
+
+                <div class="col-md-2">
+
+                    <label
+                        for="filtroFechaDesde"
+                        class="form-label small fw-semibold">
+
+                        Fecha desde
+                    </label>
+
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="filtroFechaDesde">
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <label
+                        for="filtroFechaHasta"
+                        class="form-label small fw-semibold">
+
+                        Fecha hasta
+                    </label>
+
+                    <input
+                        type="date"
+                        class="form-control"
+                        id="filtroFechaHasta">
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <label
+                        for="filtroMesaConsumo"
+                        class="form-label small fw-semibold">
+
+                        Mesa
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="filtroMesaConsumo">
+
+                        <option value="">
+                            Todas las mesas
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <label
+                        for="filtroEstadoConsumo"
+                        class="form-label small fw-semibold">
+
+                        Estado
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="filtroEstadoConsumo">
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="en_curso">
+                            En curso
+                        </option>
+
+                        <option value="cerrada">
+                            Cerrada
+                        </option>
+
+                        <option value="cancelada">
+                            Cancelada
+                        </option>
+
+                        <option value="pagada">
+                            Pagada
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-md-3">
+
+                    <label
+                        for="busquedaConsumos"
+                        class="form-label small fw-semibold">
+
+                        Buscar
+                    </label>
+
                     <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" id="busquedaMesaPedido" class="form-control border-start-0" placeholder="Buscar mesa, cliente o mozo...">
+
+                        <span class="input-group-text bg-white border-end-0">
+
+                            <i class="bi bi-search text-muted"></i>
+
+                        </span>
+
+                        <input
+                            type="text"
+                            class="form-control border-start-0"
+                            id="busquedaConsumos"
+                            placeholder="Cliente, mesa, mozo o atención...">
+
                     </div>
+
                 </div>
-                <div class="col-md-7 text-md-end">
-                    <span class="badge-pill bp-warning"><i class="bi bi-lightning-charge-fill"></i>Mesas con atención activa</span>
+
+                <div class="col-md-1">
+
+                    <button
+                        type="button"
+                        class="btn btn-brand w-100"
+                        id="btnBuscarConsumos">
+
+                        <i class="bi bi-funnel"></i>
+
+                    </button>
+
                 </div>
+
             </div>
 
-            <div id="mesasPedidoBoard" class="mesas-board"></div>
+            <div class="d-flex justify-content-end mb-3">
 
-            <div class="table-footer mt-4">
-                <span class="table-count" id="mesasPedidoCount">Mostrando 0 mesas ocupadas</span>
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="btnLimpiarFiltrosConsumos">
+
+                    <i class="bi bi-eraser me-1"></i>
+                    Limpiar filtros
+
+                </button>
+
             </div>
+
+            <div class="table-responsive">
+
+                <table class="table table-hover align-middle">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Fecha</th>
+                            <th>Atención</th>
+                            <th>Mesa</th>
+                            <th>Cliente</th>
+                            <th>Mozo</th>
+                            <th class="text-center">Ítems</th>
+                            <th class="text-end">Subtotal</th>
+                            <th class="text-end">Propina</th>
+                            <th class="text-end">Total</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="consumosMesaBody">
+
+                        <tr>
+
+                            <td
+                                colspan="11"
+                                class="text-center text-muted py-4">
+
+                                <span
+                                    class="spinner-border spinner-border-sm me-2">
+                                </span>
+
+                                Cargando consumos...
+
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <div class="table-footer">
+
+                <span
+                    class="table-count"
+                    id="consumosMesaCount">
+
+                    Mostrando 0 registros
+
+                </span>
+
+                <nav>
+
+                    <ul class="pagination pagination-sm mb-0">
+
+                        <li
+                            class="page-item disabled"
+                            id="liPrevConsumos">
+
+                            <a
+                                class="page-link"
+                                href="#"
+                                id="btnPrevConsumos">
+
+                                &laquo;
+
+                            </a>
+
+                        </li>
+
+                        <li class="page-item disabled">
+
+                            <span
+                                class="page-link"
+                                id="lblPaginaConsumos">
+
+                                -
+                            </span>
+
+                        </li>
+
+                        <li
+                            class="page-item disabled"
+                            id="liNextConsumos">
+
+                            <a
+                                class="page-link"
+                                href="#"
+                                id="btnNextConsumos">
+
+                                &raquo;
+
+                            </a>
+
+                        </li>
+
+                    </ul>
+
+                </nav>
+
+            </div>
+
         </div>
+
     </main>
 
-    <footer class="admin-footer" id="footer-global">
+    <footer
+        class="admin-footer"
+        id="footer-global">
     </footer>
+
 </div>
 
-<div class="modal fade" id="modalMesaDetalle" tabindex="-1" aria-hidden="true">
+<div
+    class="modal fade"
+    id="modalConsumoMesa"
+    tabindex="-1"
+    aria-hidden="true">
+
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+
         <div class="modal-content">
+
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-receipt"></i>Detalle de Mesa: <span id="modalMesaTitulo">-</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+
+                <h5 class="modal-title">
+
+                    <i class="bi bi-receipt"></i>
+                    Detalle de consumo:
+
+                    <span id="modalConsumoTitulo">
+                        -
+                    </span>
+
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal">
+                </button>
+
             </div>
+
             <div class="modal-body">
+
                 <div class="row g-4">
+
                     <div class="col-lg-4">
+
                         <div class="detail-card p-3 border rounded-3 h-100">
+
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="mb-0 fw-bold">Cliente</h6>
-                                <span id="modalMesaEstadoBadge"></span>
+
+                                <h6 class="mb-0 fw-bold">
+                                    Datos de atención
+                                </h6>
+
+                                <span id="modalConsumoEstadoBadge"></span>
+
                             </div>
-                            <div id="clienteInfoBlock" class="small text-muted"></div>
+
+                            <div
+                                id="modalConsumoAtencionInfo"
+                                class="small text-muted">
+                            </div>
+
                             <hr>
-                            <h6 class="mb-2 fw-bold">Resumen de Atención</h6>
-                            <div id="resumenAtencionBlock" class="small text-muted"></div>
+
+                            <h6 class="mb-2 fw-bold">
+                                Cliente
+                            </h6>
+
+                            <div
+                                id="modalConsumoClienteInfo"
+                                class="small text-muted">
+                            </div>
+
+                            <hr>
+
+                            <h6 class="mb-2 fw-bold">
+                                Totales
+                            </h6>
+
+                            <div
+                                id="modalConsumoTotales"
+                                class="small text-muted">
+                            </div>
+
                         </div>
+
                     </div>
+
                     <div class="col-lg-8">
-                        <h6 class="fw-bold mb-3">Detalle de pedidos</h6>
+
+                        <h6 class="fw-bold mb-3">
+                            Detalle de productos consumidos
+                        </h6>
+
                         <div class="table-responsive">
+
                             <table class="table table-hover align-middle">
+
                                 <thead>
+
                                     <tr>
-                                        <th>Pedido</th>
-                                        <th>Plato</th>
-                                        <th class="text-center">Cant.</th>
-                                        <th class="text-end">P. Unit.</th>
+
+                                        <th>Producto / Plato</th>
+                                        <th>Tipo</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-end">P. unitario</th>
+                                        <th class="text-end">Descuento</th>
                                         <th class="text-end">Subtotal</th>
+
                                     </tr>
+
                                 </thead>
-                                <tbody id="detallePedidosMesaBody"></tbody>
+
+                                <tbody id="modalConsumoDetalleBody">
+                                </tbody>
+
                                 <tfoot class="table-group-divider">
-                                    <tr class="fw-bold" style="background:#f8fafc;">
-                                        <td colspan="4" class="text-end pe-3">Total mesa:</td>
-                                        <td class="text-end" id="totalMesaMonto" style="color:var(--brand);">S/ 0.00</td>
+
+                                    <tr class="fw-bold">
+
+                                        <td
+                                            colspan="5"
+                                            class="text-end">
+
+                                            Total:
+                                        </td>
+
+                                        <td
+                                            class="text-end"
+                                            id="modalConsumoTotal">
+
+                                            S/ 0.00
+                                        </td>
+
                                     </tr>
+
                                 </tfoot>
+
                             </table>
+
                         </div>
+
                         <div class="alert alert-light border mt-2 mb-0">
-                            <strong>Notas del pedido:</strong>
-                            <span id="modalMesaNotas">Sin notas.</span>
+
+                            <strong>
+                                Observaciones:
+                            </strong>
+
+                            <span id="modalConsumoObservaciones">
+                                Sin observaciones.
+                            </span>
+
                         </div>
+
                     </div>
+
                 </div>
+
             </div>
+
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-dismiss="modal">
+
+                    Cerrar
+
+                </button>
+
             </div>
+
         </div>
+
     </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script src="../js/auth.js"></script>
 <script src="../js/app.js"></script>
 <script src="../js/layout.js"></script>
-<script src="../js/pedidos-mesa.js"></script>
+<script src="../js/pedidos-mesa.js?v=2"></script>
+
 <script>
 (async () => {
     await Layout.loadSharedSidebar();
     Layout.init('pedidosMesa');
+
+    if (window.ReporteConsumosMesa) {
+        await window.ReporteConsumosMesa.init();
+    }
 })();
 </script>
+
 </body>
 </html>

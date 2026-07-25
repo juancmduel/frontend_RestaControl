@@ -32,36 +32,77 @@
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
         resolveUsuarioSesion();
-        await Promise.all([loadEstados(), loadClientes(), loadMesas()]);
+
+        await Promise.all([
+            loadEstados(),
+            loadClientes(),
+            loadMesas()
+        ]);
+
         await loadReservas();
     }
 
     function resolveUsuarioSesion() {
-        const authSession = (typeof Auth !== 'undefined' && typeof Auth.getSession === 'function')
-            ? Auth.getSession()
-            : null;
+        const session = Auth.getSession();
 
-        let rawSession = null;
-        try {
-            rawSession = JSON.parse(sessionStorage.getItem('rc_sess') || 'null');
-        } catch {
-            rawSession = null;
-        }
-
-        const s = authSession || rawSession;
-        if (!s) {
+        if (!session) {
             state.usuarioSesion = null;
             setValue('reservaCreadaPor', 'Usuario no identificado');
             return;
         }
 
-        state.usuarioSesion = s;
-        const display = s.name
-            ? `${s.name}${s.username ? ` (${s.username})` : ''}`
-            : (s.username || 'Usuario');
+        state.usuarioSesion = session;
+
+        const nombre =
+            session.nombreCompleto ||
+            session.name ||
+            session.username ||
+            'Usuario';
+
+        const display = session.username && nombre !== session.username
+            ? `${nombre} (${session.username})`
+            : nombre;
+
         setValue('reservaCreadaPor', display);
+    }
+
+    async function handleHttpError(
+        response,
+        payload,
+        defaultMessage
+    ) {
+        if (response.status === 401) {
+            showToast(
+                'Tu sesión ha expirado. Inicia sesión nuevamente.',
+                'danger'
+            );
+
+            setTimeout(() => {
+                Auth.logout();
+            }, 700);
+
+            throw new Error('Sesión expirada.');
+        }
+
+        if (response.status === 403) {
+            throw new Error(
+                payload?.message ||
+                'No tienes permisos para realizar esta operación.'
+            );
+        }
+
+        throw new Error(
+            payload?.message ||
+            defaultMessage
+        );
     }
 
     function bindEvents() {
@@ -164,9 +205,17 @@
 
     async function loadEstados() {
         try {
-            const response = await fetch(API_ESTADOS);
+            const response = await fetch(API_ESTADOS, {
+                credentials: 'include'
+            });
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo cargar estados de reserva.');
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo cargar estados de reserva.'
+                );
+            }
 
             const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
             state.estados = data.map(normalizeEstado).filter(Boolean);
@@ -219,8 +268,21 @@
 
     async function loadClientes() {
         try {
-            const response = await fetch(`${API_CLIENTES}?activo=true&page=1&size=100`);
+            const response = await fetch(
+                `${API_CLIENTES}?activo=true&page=1&size=100`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo cargar clientes.'
+                );
+            }
             const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
             state.clientes = data;
         } catch {
@@ -248,9 +310,20 @@
         }
 
         try {
-            const response = await fetch(`${API_CLIENTES}?search=${encodeURIComponent(dni)}&page=1&size=20`);
+            const response = await fetch(
+                `${API_CLIENTES}?search=${encodeURIComponent(dni)}&page=1&size=20`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo buscar cliente.');
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo buscar cliente.'
+                );
+            }
 
             const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
             const found = data.find((c) => String(c.documento || '').trim() === dni) || null;
@@ -287,7 +360,10 @@
         try {
             const response = await fetch(API_CLIENTES, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     tipoDocumento,
                     documento,
@@ -300,7 +376,14 @@
             });
 
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo crear cliente.');
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo crear cliente.'
+                );
+            }
 
             const nuevo = payload?.data || null;
             if (!nuevo?.id) throw new Error('Cliente creado sin id en respuesta.');
@@ -358,8 +441,21 @@
 
     async function loadMesas() {
         try {
-            const response = await fetch(`${API_MESAS}?activo=true&page=1&size=100`);
+            const response = await fetch(
+                `${API_MESAS}?activo=true&page=1&size=100`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo cargar mesas.'
+                );
+            }
             const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
             state.mesas = data;
         } catch {
@@ -405,9 +501,20 @@
         setTableLoading(true);
 
         try {
-            const response = await fetch(`${API_RESERVAS}?${params.toString()}`);
+            const response = await fetch(
+                `${API_RESERVAS}?${params.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo listar reservas.');
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo listar reservas.'
+                );
+            }
 
             state.reservas = Array.isArray(payload)
                 ? payload
@@ -441,9 +548,13 @@
         }
 
         try {
-            const response = await fetch(`${API_EXPORT_EXCEL}?${params.toString()}`, {
-                method: 'GET'
-            });
+            const response = await fetch(
+                `${API_EXPORT_EXCEL}?${params.toString()}`,
+                {
+                    method: 'GET',
+                    credentials: 'include'
+                }
+            );
 
             if (!response.ok) {
                 const payload = await safeJson(response);
@@ -656,12 +767,22 @@
         try {
             const response = await fetch(url, {
                 method: isEdit ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(body)
             });
 
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo guardar la reserva.');
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo guardar la reserva.'
+                );
+            }
 
             hideModal('modalForm');
             await loadReservas();
@@ -685,12 +806,25 @@
         if (!state.deletingReserva) return;
 
         try {
-            const response = await fetch(`${API_RESERVAS}/${encodeURIComponent(state.deletingReserva.id)}`, {
-                method: 'DELETE'
-            });
-            const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo eliminar la reserva.');
+            const response = await fetch(
+                `${API_RESERVAS}/${encodeURIComponent(
+                    state.deletingReserva.id
+                )}`,
+                {
+                    method: 'DELETE',
+                    credentials: 'include'
+                }
+            );
 
+            const payload = await safeJson(response);
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo eliminar la reserva.'
+                );
+            }
             hideModal('modalDelete');
             state.deletingReserva = null;
             await loadReservas();
@@ -702,13 +836,29 @@
 
     async function confirmarRapido(id) {
         try {
-            const response = await fetch(`${API_RESERVAS}/${encodeURIComponent(id)}/estado`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ confirmada: true })
-            });
+            const response = await fetch(
+                `${API_RESERVAS}/${encodeURIComponent(id)}/estado`,
+                {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        confirmada: true
+                    })
+                }
+            );
+
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo confirmar reserva.');
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo confirmar la reserva.'
+                );
+            }
 
             await loadReservas();
             showToast(payload?.message || 'Reserva confirmada.', 'success');
@@ -722,13 +872,30 @@
         const confirmada = next === 'confirmada' ? true : confirmadaActual;
 
         try {
-            const response = await fetch(`${API_RESERVAS}/${encodeURIComponent(id)}/situacion`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ estado: next, confirmada })
-            });
+            const response = await fetch(
+                `${API_RESERVAS}/${encodeURIComponent(id)}/situacion`,
+                {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        estado: next,
+                        confirmada
+                    })
+                }
+            );
+
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo cambiar situación de reserva.');
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo cambiar la situación de reserva.'
+                );
+            }
 
             await loadReservas();
             showToast(payload?.message || `Situación cambiada a ${toTitleCase(next)}.`, 'success');
@@ -750,9 +917,22 @@
         if (local) return local;
 
         try {
-            const response = await fetch(`${API_RESERVAS}/${encodeURIComponent(id)}`);
+            const response = await fetch(
+                `${API_RESERVAS}/${encodeURIComponent(id)}`,
+                {
+                    credentials: 'include'
+                }
+            );
+
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo obtener la reserva.');
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo obtener la reserva.'
+                );
+            }
             return payload?.data || payload;
         } catch (error) {
             showToast(error.message || 'No se pudo obtener la reserva.', 'danger');
@@ -814,9 +994,22 @@
                 page: '1',
                 size: '200'
             });
-            const response = await fetch(`${API_LISTA_MESAS}?${query.toString()}`);
+            const response = await fetch(
+                `${API_LISTA_MESAS}?${query.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
+
             const payload = await safeJson(response);
-            if (!response.ok) throw new Error(payload?.message || 'No se pudo consultar disponibilidad de mesas.');
+
+            if (!response.ok) {
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo consultar disponibilidad de mesas.'
+                );
+            }
 
             const rows = Array.isArray(payload?.data) ? payload.data : [];
             const disponibles = rows.filter((mesa) => {
@@ -879,10 +1072,21 @@
 
         try {
             const query = new URLSearchParams({ fechaHora });
-            const response = await fetch(`${API_LISTA_MESAS}/${encodeURIComponent(idMesa)}/contexto?${query.toString()}`);
+            const response = await fetch(
+                `${API_LISTA_MESAS}/${encodeURIComponent(idMesa)}/contexto?${query.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
+
             const payload = await safeJson(response);
+
             if (!response.ok) {
-                throw new Error(payload?.message || 'No se pudo validar la disponibilidad de la mesa.');
+                await handleHttpError(
+                    response,
+                    payload,
+                    'No se pudo validar la disponibilidad de la mesa.'
+                );
             }
 
             const data = payload?.data || {};

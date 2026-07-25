@@ -684,3 +684,28 @@ COMMENT ON TABLE comprobantes IS 'Comprobantes de venta (boletas, facturas)';
 -- =====================================================================
 -- FIN DEL SCRIPT PostgreSQL
 -- =====================================================================
+CREATE TABLE auditoria (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    usuario VARCHAR(100),
+
+    rol VARCHAR(80),
+
+    modulo VARCHAR(100) NOT NULL,
+
+    accion VARCHAR(50) NOT NULL,
+
+    descripcion TEXT,
+
+    metodo_http VARCHAR(10),
+
+    endpoint VARCHAR(255),
+
+    ip VARCHAR(80),
+
+    exitoso BOOLEAN NOT NULL DEFAULT TRUE,
+
+    error TEXT
+);

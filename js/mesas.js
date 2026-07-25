@@ -25,6 +25,12 @@
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
         await loadEstados();
         await loadMesas();
@@ -157,7 +163,12 @@
         setTableLoading(true);
 
         try {
-            const response = await fetch(`${API_MESAS}?${params.toString()}`);
+            const response = await fetch(
+                `${API_MESAS}?${params.toString()}`,
+                {
+                    credentials: 'include'
+                }
+            );
             const payload = await safeJson(response);
             if (!response.ok) throw new Error(payload?.message || 'No se pudo listar mesas.');
 
@@ -321,6 +332,7 @@
         try {
             const response = await fetch(url, {
                 method: isEdit ? 'PUT' : 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
@@ -351,7 +363,8 @@
 
         try {
             const response = await fetch(`${API_MESAS}/${encodeURIComponent(state.deletingMesa.id)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             });
             const payload = await safeJson(response);
             if (!response.ok) throw new Error(payload?.message || 'No se pudo eliminar la mesa.');
@@ -369,6 +382,7 @@
         try {
             const response = await fetch(`${API_MESAS}/${encodeURIComponent(id)}/estado`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ activo: !activoActual })
             });
@@ -389,6 +403,7 @@
             const response = await fetch(`${API_MESAS}/${encodeURIComponent(id)}/situacion`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ estado: next })
             });
             const payload = await safeJson(response);
@@ -417,7 +432,9 @@
         if (local) return local;
 
         try {
-            const response = await fetch(`${API_MESAS}/${encodeURIComponent(id)}`);
+            const response = await fetch(`${API_MESAS}/${encodeURIComponent(id)}`, {
+                credentials: 'include'
+            });
             const payload = await safeJson(response);
             if (!response.ok) throw new Error(payload?.message || 'No se pudo obtener la mesa.');
             return payload?.data || payload;

@@ -20,9 +20,15 @@
 
     document.addEventListener('DOMContentLoaded', init);
 
-    function init() {
+    async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         bindEvents();
-        loadCategorias();
+        await loadCategorias();
     }
 
     function bindEvents() {
@@ -95,7 +101,13 @@
         setTableLoading(true);
 
         try {
-            const response = await fetch(`${API_CATS}?${params.toString()}`);
+            const response = await fetch(`${API_CATS}?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json'
+                },
+                credentials: 'include'
+            });
             const payload = await safeJson(response);
 
             if (!response.ok) {
@@ -238,6 +250,7 @@
             const response = await fetch(url, {
                 method: isUpdate ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(payload)
             });
 
@@ -269,9 +282,13 @@
         if (!state.deletingCategoria) return;
 
         try {
-            const response = await fetch(`${API_CATS}/${encodeURIComponent(state.deletingCategoria.id)}`, {
-                method: 'DELETE'
-            });
+            const response = await fetch(
+                `${API_CATS}/${encodeURIComponent(state.deletingCategoria.id)}`,
+                {
+                    method: 'DELETE',
+                    credentials: 'include'
+                }
+            );
 
             const data = await safeJson(response);
             if (!response.ok) throw new Error(data?.message || 'No se pudo eliminar la categoría.');
@@ -287,11 +304,19 @@
 
     async function toggleEstado(id, activoActual) {
         try {
-            const response = await fetch(`${API_CATS}/${encodeURIComponent(id)}/estado`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ activo: !activoActual })
-            });
+            const response = await fetch(
+                `${API_CATS}/${encodeURIComponent(id)}/estado`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        activo: !activoActual
+                    })
+                }
+            );
 
             const data = await safeJson(response);
             if (!response.ok) throw new Error(data?.message || 'No se pudo actualizar el estado.');
@@ -308,7 +333,16 @@
         if (local) return local;
 
         try {
-            const response = await fetch(`${API_CATS}/${encodeURIComponent(id)}`);
+            const response = await fetch(
+                `${API_CATS}/${encodeURIComponent(id)}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json'
+                    },
+                    credentials: 'include'
+                }
+            );
             const data = await safeJson(response);
             if (!response.ok) throw new Error(data?.message || 'No se pudo obtener la categoría.');
             return data?.data || data;

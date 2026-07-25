@@ -41,24 +41,66 @@
     async function request(path, options = {}) {
         const response = await fetch(`${API_BASE}${path}`, {
             method: options.method || 'GET',
+            credentials: 'include',
             headers: {
                 ...DEFAULT_HEADERS,
                 ...(options.headers || {})
             },
-            body: options.body ? JSON.stringify(options.body) : undefined
+            body: options.body !== undefined
+                ? JSON.stringify(options.body)
+                : undefined
         });
 
         let payload = null;
+
         try {
             payload = await response.json();
         } catch {
             payload = null;
         }
 
-        if (!response.ok || payload?.success === false) {
-            const messageFromCode = payload?.code ? CODE_TO_MESSAGE[payload.code] : '';
+        if (response.status === 401) {
+            setTimeout(() => {
+                if (
+                    typeof Auth !== 'undefined' &&
+                    typeof Auth.logout === 'function'
+                ) {
+                    Auth.logout();
+                }
+            }, 700);
+
             throw new ApiBusinessError(
-                payload?.message || messageFromCode || 'No se pudo completar la solicitud al servidor.',
+                'Tu sesión ha expirado. Inicia sesión nuevamente.',
+                {
+                    code: 'SESION_EXPIRADA',
+                    status: 401,
+                    payload
+                }
+            );
+        }
+
+        if (response.status === 403) {
+            throw new ApiBusinessError(
+                payload?.message ||
+                'No tienes permisos para realizar esta operación.',
+                {
+                    code: payload?.code || 'ACCESO_DENEGADO',
+                    details: payload?.details,
+                    status: 403,
+                    payload
+                }
+            );
+        }
+
+        if (!response.ok || payload?.success === false) {
+            const messageFromCode = payload?.code
+                ? CODE_TO_MESSAGE[payload.code]
+                : '';
+
+            throw new ApiBusinessError(
+                payload?.message ||
+                messageFromCode ||
+                'No se pudo completar la solicitud al servidor.',
                 {
                     code: payload?.code,
                     details: payload?.details,
@@ -75,10 +117,12 @@
         if (error instanceof ApiBusinessError) {
             return {
                 code: error.code || 'ERROR_NEGOCIO',
-                message: error.message || 'Ocurrio un error de negocio.',
+                message: error.message || 'Ocurrió un error.',
                 details: error.details || null,
                 status: error.status || 400,
-                isBusiness: true
+                isBusiness: true,
+                isUnauthorized: error.status === 401,
+                isForbidden: error.status === 403
             };
         }
 
@@ -87,7 +131,9 @@
             message: 'No se pudo conectar con el backend.',
             details: null,
             status: 0,
-            isBusiness: false
+            isBusiness: false,
+            isUnauthorized: false,
+            isForbidden: false
         };
     }
 

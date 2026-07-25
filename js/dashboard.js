@@ -4,57 +4,103 @@
    ===================================================== */
 
 (() => {
-    const apiBaseUrl = window.APP_CONFIG?.API_BASE_URL ? String(window.APP_CONFIG.API_BASE_URL).replace(/\/+$/, '') : null;
+    const apiBaseUrl = window.APP_CONFIG?.API_BASE_URL
+        ? String(window.APP_CONFIG.API_BASE_URL).replace(/\/+$/, '')
+        : null;
 
     async function init() {
+        const authenticated = await Auth.requireLogin();
+
+        if (!authenticated) {
+            return;
+        }
+
         await render();
     }
 
     async function render() {
-        const data = await loadDashboardData();
-        renderStats(data);
-        renderReservas(data.reservas.rows);
-        renderAtenciones(data.atenciones.rows);
+        try {
+            const data = await loadDashboardData();
+
+            renderStats(data);
+            renderReservas(data.reservas?.rows || []);
+            renderAtenciones(data.atenciones?.rows || []);
+        } catch (error) {
+            console.error(
+                'No se pudo renderizar el dashboard:',
+                error
+            );
+        }
     }
 
     async function loadDashboardData() {
-        const fallback = loadDashboardDataFromLocalDb();
-        if (!apiAvailable()) {
-            return fallback;
+        const dashboardFromApi = await fetchDashboardFromApi();
+
+        if (!dashboardFromApi) {
+            throw new Error(
+                'No se pudieron cargar los datos del dashboard desde el backend.'
+            );
         }
 
-        const dashboardFromApi = await fetchDashboardFromApi();
-        return dashboardFromApi || fallback;
+        return dashboardFromApi;
     }
 
     async function fetchDashboardFromApi() {
-        if (!window.APP_CONFIG || !window.APP_CONFIG.API_BASE_URL) {
+        if (!apiBaseUrl) {
             return null;
         }
 
         try {
-            const baseUrl = String(window.APP_CONFIG.API_BASE_URL).replace(/\/+$/, '');
-            const response = await fetch(`${baseUrl}/api/dashboard`);
-            if (!response.ok) {
-                console.warn('Backend dashboard no disponible:', response.status);
-                return null;
-            }
+            const response = await fetch(
+                `${apiBaseUrl}/api/dashboard`,
+                {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json'
+                    },
+                    credentials: 'include'
+                }
+            );
+
             const payload = await response.json();
-            if (!payload || typeof payload.data !== 'object') {
-                console.warn('Respuesta de dashboard backend inválida.');
+
+            if (!response.ok) {
+                console.error(
+                    'Error consultando dashboard:',
+                    response.status,
+                    payload
+                );
                 return null;
             }
-            return payload.data;
+
+            const dashboardData = payload?.data ?? payload;
+
+            if (!dashboardData || typeof dashboardData !== 'object') {
+                console.warn(
+                    'Respuesta de dashboard backend inválida.',
+                    payload
+                );
+                return null;
+            }
+
+            console.log(
+                'Datos recibidos del dashboard:',
+                dashboardData
+            );
+
+            return dashboardData;
+
         } catch (error) {
-            console.warn('Error cargando dashboard desde backend:', error);
+            console.error(
+                'Error cargando dashboard desde backend:',
+                error
+            );
             return null;
         }
     }
 
     function loadDashboardDataFromLocalDb() {
-        const categorias = DB.getAll('categorias');
-        const platos = DB.getAll('platos');
-        const mesas = DB.getAll('mesas');
+
         const reservas = DB.getAll('reservas');
         const atenciones = DB.getAll('atenciones');
         const pedidos = DB.getAll('pedidos');

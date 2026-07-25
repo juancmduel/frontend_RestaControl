@@ -190,6 +190,85 @@
     </div>
 </div>
 
+
+<!-- MODAL: CAMBIAR CONTRASEÑA -->
+<div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-key-fill me-1"></i>Cambiar contraseña
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formPassword" novalidate>
+                    <input type="hidden" id="passwordUsuarioId">
+
+                    <p class="text-muted small mb-3">
+                        Usuario:
+                        <strong id="passwordUsuarioNombre">-</strong>
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Nueva contraseña <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <input
+                                    type="password"
+                                    class="form-control"
+                                    id="nuevaPasswordUsuario"
+                                    minlength="6"
+                                    autocomplete="new-password"
+                                    placeholder="Mínimo 6 caracteres"
+                                    required>
+                            <button
+                                    class="btn btn-outline-secondary"
+                                    type="button"
+                                    id="btnVerNuevaPassword"
+                                    title="Mostrar u ocultar contraseña">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">
+                            Confirmar contraseña <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <input
+                                    type="password"
+                                    class="form-control"
+                                    id="confirmarPasswordUsuario"
+                                    minlength="6"
+                                    autocomplete="new-password"
+                                    placeholder="Repita la contraseña"
+                                    required>
+                            <button
+                                    class="btn btn-outline-secondary"
+                                    type="button"
+                                    id="btnVerConfirmarPassword"
+                                    title="Mostrar u ocultar contraseña">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-brand" id="btnGuardarPassword">
+                    <i class="bi bi-check-circle me-1"></i>Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: ELIMINAR -->
 <div class="modal fade" id="modalDelete" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -221,7 +300,6 @@
 </script>
 </body>
 </html>
-
 
 
 
