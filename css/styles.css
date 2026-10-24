@@ -265,7 +265,7 @@ a { text-decoration: none; }
 .table thead th {
     font-size: .74rem; font-weight: 700;
     text-transform: uppercase; letter-spacing: .05em;
-    color: var(--muted); padding: 11px 14px;
+        color: var(--brand-dark); padding: 11px 14px;
     border-bottom: 1px solid var(--border);
     white-space: nowrap; background: transparent;
 }
