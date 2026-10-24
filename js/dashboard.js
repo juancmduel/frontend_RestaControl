@@ -30,6 +30,7 @@
                 'No se pudo renderizar el dashboard:',
                 error
             );
+            renderError();
         }
     }
 
@@ -83,11 +84,6 @@
                 return null;
             }
 
-            console.log(
-                'Datos recibidos del dashboard:',
-                dashboardData
-            );
-
             return dashboardData;
 
         } catch (error) {
@@ -99,97 +95,22 @@
         }
     }
 
-    function loadDashboardDataFromLocalDb() {
-
-        const reservas = DB.getAll('reservas');
-        const atenciones = DB.getAll('atenciones');
-        const pedidos = DB.getAll('pedidos');
-        const detalles = DB.getAll('detallePedidos');
-        const usuarios = DB.getAll('usuarios');
-
-        const reservasActivas = reservas.filter((reserva) => String(reserva.estado || '').toLowerCase() !== 'cancelada');
-        const reservasConfirmadas = reservasActivas.filter((reserva) => String(reserva.estado || '').toLowerCase() === 'confirmada');
-        const atencionesEnCurso = atenciones.filter((atencion) => String(atencion.estado || '').toLowerCase() === 'en curso');
-        const cerradasHoy = atenciones.filter((atencion) => {
-            if (String(atencion.estado || '').toLowerCase() !== 'cerrada') return false;
-            if (!atencion.cierre_en) return false;
-            const cierre = new Date(atencion.cierre_en);
-            const hoy = new Date();
-            return cierre.getFullYear() === hoy.getFullYear()
-                && cierre.getMonth() === hoy.getMonth()
-                && cierre.getDate() === hoy.getDate();
-        });
-
-        const reservasRows = reservasActivas
-            .slice()
-            .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora))
-            .slice(0, 5)
-            .map((reserva, index) => ({
-                index: index + 1,
-                cliente: reserva.nombre_contacto || `Cliente ${reserva.id_cliente || ''}`,
-                mesa: getMesaCodigo(reserva.id_mesa),
-                fechaHora: formatDateTime(reserva.fecha_hora),
-                personas: reserva.cantidad_personas || 0,
-                estado: reserva.estado || 'Pendiente'
-            }));
-
-        const atencionesRows = atenciones
-            .slice()
-            .sort((a, b) => sortAtencionRows(a, b))
-            .slice(0, 5)
-            .map((atencion, index) => ({
-                index: index + 1,
-                cliente: getClienteNombre(atencion.id_cliente),
-                mesa: getMesaCodigo(atencion.id_mesa),
-                mozo: getUsuarioNombre(atencion.id_mozo),
-                estado: atencion.estado || 'Desconocido',
-                pago: atencion.estado_pago || 'Pendiente'
-            }));
-
-        return {
-            categorias: {
-                active: categorias.filter((categoria) => Boolean(categoria.activo)).length,
-                total: categorias.length
-            },
-            platos: {
-                available: platos.filter((plato) => plato.activo && plato.disponible !== false).length,
-                total: platos.length
-            },
-            mesas: {
-                active: mesas.filter((mesa) => Boolean(mesa.activa)).length,
-                total: mesas.length
-            },
-            reservas: {
-                active: reservasActivas.length,
-                confirmed: reservasConfirmadas.length,
-                rows: reservasRows
-            },
-            atenciones: {
-                inProgress: atencionesEnCurso.length,
-                closedToday: cerradasHoy.length,
-                rows: atencionesRows
-            },
-            pedidos: {
-                total: pedidos.length,
-                items: detalles.length
+    function renderError() {
+        const message = 'No se pudo cargar la información. Verifica que el backend esté activo e inicia sesión nuevamente.';
+        [
+            'dashCategoriasActivas', 'dashPlatosDisponibles', 'dashMesasActivas',
+            'dashReservasVigentes', 'dashAtencionesEnCurso', 'dashPedidosRegistrados'
+        ].forEach((id) => setText(id, '-'));
+        [
+            'dashCategoriasNote', 'dashPlatosNote', 'dashMesasNote',
+            'dashReservasNote', 'dashAtencionesNote', 'dashPedidosNote'
+        ].forEach((id) => setText(id, 'Sin datos'));
+        ['dashReservasBody', 'dashAtencionesBody'].forEach((id) => {
+            const container = byId(id);
+            if (container) {
+                container.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">' + message + '</td></tr>';
             }
-        };
-    }
-
-    function sortAtencionRows(a, b) {
-        const estadoPri = getAtencionPriority(a.estado);
-        const estadoSec = getAtencionPriority(b.estado);
-        if (estadoPri !== estadoSec) return estadoPri - estadoSec;
-        const fechaA = new Date(a.apertura_en || '');
-        const fechaB = new Date(b.apertura_en || '');
-        return fechaA - fechaB;
-    }
-
-    function getAtencionPriority(estado) {
-        const raw = String(estado || '').toLowerCase();
-        if (raw.includes('en curso')) return 0;
-        if (raw.includes('cerrada')) return 1;
-        return 2;
+        });
     }
 
     function renderStats(data) {
@@ -274,27 +195,6 @@
         }
         const label = String(value || '').replace(/_/g, ' ');
         return `<span class="badge-pill ${klass}">${escapeHtml(label)}</span>`;
-    }
-
-    function getMesaCodigo(idMesa) {
-        const mesa = DB.getById('mesas', idMesa);
-        return mesa ? mesa.codigo : `Mesa ${idMesa || '-'} `;
-    }
-
-    function getClienteNombre(idCliente) {
-        const cliente = DB.getById('clientes', idCliente);
-        if (!cliente) return `Cliente ${idCliente || ''}`;
-        return `${cliente.nombres || ''} ${cliente.apellidos || ''}`.trim();
-    }
-
-    function getUsuarioNombre(idUsuario) {
-        const usuario = DB.getById('usuarios', idUsuario);
-        if (!usuario) return `Usuario ${idUsuario || ''}`;
-        return `${usuario.nombres || ''} ${usuario.apellidos || ''}`.trim();
-    }
-
-    function apiAvailable() {
-        return Boolean(apiBaseUrl);
     }
 
     function escapeHtml(value) {
