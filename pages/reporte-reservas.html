@@ -34,11 +34,37 @@
             </div>
         </div>
 
+        <!-- FILTROS DEL REPORTE -->
+        <!-- Los value de cada option se usan en reporte-reservas.js -->
+        <div class="content-card mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label small fw-semibold text-muted mb-1" for="filtroPeriodo">Periodo</label>
+                    <!-- Estos value son los que acepta el backend: 1d, 7d, 30d -->
+                    <select class="form-select" id="filtroPeriodo">
+                        <option value="1d">Hoy</option>
+                        <option value="7d" selected>Últimos 7 días</option>
+                        <option value="30d">Últimos 30 días</option>
+                    </select>
+                </div>
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label small fw-semibold text-muted mb-1" for="filtroEstado">Estado</label>
+                    <!-- Estos value se llaman igual que los campos que manda el backend en cada día -->
+                    <select class="form-select" id="filtroEstado">
+                        <option value="todos" selected>Todos los estados</option>
+                        <option value="confirmadas">Confirmadas</option>
+                        <option value="pendientes">Pendientes</option>
+                        <option value="canceladas">Canceladas</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon si-orange"><i class="bi bi-calendar2-plus"></i></div>
                 <div class="stat-body">
-                    <div class="stat-label">Reservas totales (7d)</div>
+                    <div class="stat-label" id="resTotalLabel">Reservas totales (7d)</div>
                     <div class="stat-value" id="resTotal">0</div>
                     <div class="stat-note" id="resTotalNote">Totales en periodo</div>
                 </div>
@@ -71,7 +97,7 @@
 
         <div class="content-card mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="section-title mb-0"><i class="bi bi-bar-chart-steps"></i>Reservas por estado (últimos 7 días)</span>
+                <span class="section-title mb-0"><i class="bi bi-bar-chart-steps"></i><span id="chartTitle">Reservas por estado (últimos 7 días)</span></span>
             </div>
             <div id="reservasChartWrap" style="height:340px;position:relative;">
                 <canvas id="reservasChart" style="width:100%;height:100%;"></canvas>
@@ -87,7 +113,8 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
-                    <thead>
+                    <!-- La cabecera la arma reporte-reservas.js, porque cambia según el filtro de estado -->
+                    <thead id="resumenReservasHead">
                         <tr><th>Día</th><th>Confirmadas</th><th>Pendientes</th><th>Canceladas</th><th>Atenciones</th></tr>
                     </thead>
                     <tbody id="resumenReservasBody"></tbody>

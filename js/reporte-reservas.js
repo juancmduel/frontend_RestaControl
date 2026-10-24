@@ -4,26 +4,94 @@
 
 (() => {
     const state = {
-        chart: null
+        chart: null,
+        // Filtros elegidos por el usuario (valores iniciales = los "selected" del HTML)
+        periodo: '7d',
+        estado: 'todos',
+        // Último reporte que llegó del backend, para volver a dibujar sin pedirlo otra vez
+        data: null
     };
+
+    // Texto que se muestra en los títulos según el periodo elegido
+    const PERIODOS = {
+        '1d': 'hoy',
+        '7d': 'últimos 7 días',
+        '30d': 'últimos 30 días'
+    };
+
+    // Estados que se pueden filtrar. La "key" es el nombre del campo
+    // que manda el backend en cada día del history.
+    const ESTADOS = [
+        { key: 'confirmadas', label: 'Confirmadas', color: 'rgba(34,197,94,0.85)' },
+        { key: 'pendientes', label: 'Pendientes', color: 'rgba(245,158,11,0.85)' },
+        { key: 'canceladas', label: 'Canceladas', color: 'rgba(239,68,68,0.85)' }
+    ];
 
     const apiBaseUrl = window.APP_CONFIG?.API_BASE_URL
         ? String(window.APP_CONFIG.API_BASE_URL).replace(/\/+$/, '')
         : '';
 
     async function init() {
+        bindFiltros();
+        await cargarReporte();
+    }
+
+    // Escucha los cambios de los dos select del HTML
+    function bindFiltros() {
+        const filtroPeriodo = document.getElementById('filtroPeriodo');
+        const filtroEstado = document.getElementById('filtroEstado');
+
+        // El periodo cambia el rango de fechas, así que hay que pedir el reporte otra vez al backend
+        filtroPeriodo?.addEventListener('change', async (event) => {
+            state.periodo = event.target.value;
+            await cargarReporte();
+        });
+
+        // El estado no necesita backend: los datos de cada estado ya llegaron, solo cambiamos qué se muestra
+        filtroEstado?.addEventListener('change', (event) => {
+            state.estado = event.target.value;
+            renderVista();
+        });
+    }
+
+    // Pide el reporte con el periodo actual y dibuja todo
+    async function cargarReporte() {
         try {
             showLoading();
 
             const data = await loadReportData();
+            state.data = data;
 
             renderSummary(data);
-            renderTable(data.history);
-            renderChart(data.history);
+            renderTitulos();
+            renderVista();
         } catch (error) {
             console.error('Error cargando el reporte de reservas:', error);
             renderError();
         }
+    }
+
+    // Dibuja la tabla y el gráfico con los datos guardados y el filtro de estado
+    function renderVista() {
+        const history = state.data ? state.data.history : [];
+
+        renderTable(history);
+        renderChart(history);
+    }
+
+    // Devuelve los estados que hay que mostrar según el filtro
+    function getEstadosVisibles() {
+        if (state.estado === 'todos') {
+            return ESTADOS;
+        }
+
+        return ESTADOS.filter((estado) => estado.key === state.estado);
+    }
+
+    // Cambia los títulos para que digan el periodo elegido
+    function renderTitulos() {
+        setText('resTotalLabel', `Reservas totales (${state.periodo})`);
+        setText('chartTitle', `Reservas por estado (${PERIODOS[state.periodo] || state.periodo})`);
     }
 
     async function loadReportData() {
@@ -49,7 +117,7 @@
 
     async function fetchFromApi() {
         const url =
-            `${apiBaseUrl}/api/reportes/reservas?periodo=7d`;
+            `${apiBaseUrl}/api/reportes/reservas?periodo=${encodeURIComponent(state.periodo)}`;
 
         try {
             const response = await fetch(url, {
@@ -356,6 +424,11 @@
     }
 
     function renderTable(history) {
+        const head =
+            document.getElementById(
+                'resumenReservasHead'
+            );
+
         const body =
             document.getElementById(
                 'resumenReservasBody'
@@ -365,11 +438,27 @@
             return;
         }
 
+        const estados = getEstadosVisibles();
+
+        // La cabecera cambia según el filtro: Día + estados visibles + Atenciones
+        if (head) {
+            head.innerHTML = `
+                <tr>
+                    <th>Día</th>
+                    ${estados.map((estado) => `<th>${estado.label}</th>`).join('')}
+                    <th>Atenciones</th>
+                </tr>
+            `;
+        }
+
+        // Día + estados + Atenciones, para que el mensaje ocupe toda la fila
+        const totalColumnas = estados.length + 2;
+
         if (!history.length) {
             body.innerHTML = `
                 <tr>
                     <td
-                        colspan="5"
+                        colspan="${totalColumnas}"
                         class="text-center text-muted py-4"
                     >
                         No hay información para mostrar.
@@ -387,17 +476,7 @@
                         ${escapeHtml(item.label)}
                     </td>
 
-                    <td>
-                        ${item.confirmadas}
-                    </td>
-
-                    <td>
-                        ${item.pendientes}
-                    </td>
-
-                    <td>
-                        ${item.canceladas}
-                    </td>
+                    ${estados.map((estado) => `<td>${item[estado.key]}</td>`).join('')}
 
                     <td>
                         ${item.atenciones}
@@ -425,13 +504,14 @@
             state.chart = null;
         }
 
+        const estados = getEstadosVisibles();
+
+        // Hay datos si algún día tiene valor en un estado visible o en atenciones
         const hasData =
             history.length > 0 &&
             history.some(
                 (item) =>
-                    item.confirmadas > 0 ||
-                    item.pendientes > 0 ||
-                    item.canceladas > 0 ||
+                    estados.some((estado) => item[estado.key] > 0) ||
                     item.atenciones > 0
             );
 
@@ -461,31 +541,15 @@
                     (item) => item.label
                 ),
 
+                // Una barra por cada estado visible, más la de atenciones
                 datasets: [
-                    {
-                        label: 'Confirmadas',
+                    ...estados.map((estado) => ({
+                        label: estado.label,
                         data: history.map(
-                            (item) => item.confirmadas
+                            (item) => item[estado.key]
                         ),
-                        backgroundColor:
-                            'rgba(34,197,94,0.85)'
-                    },
-                    {
-                        label: 'Pendientes',
-                        data: history.map(
-                            (item) => item.pendientes
-                        ),
-                        backgroundColor:
-                            'rgba(245,158,11,0.85)'
-                    },
-                    {
-                        label: 'Canceladas',
-                        data: history.map(
-                            (item) => item.canceladas
-                        ),
-                        backgroundColor:
-                            'rgba(239,68,68,0.85)'
-                    },
+                        backgroundColor: estado.color
+                    })),
                     {
                         label: 'Atenciones',
                         data: history.map(
