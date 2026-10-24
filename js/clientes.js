@@ -227,6 +227,34 @@
         showModal('modalForm');
     }
 
+    // Revisa que el documento tenga el formato correcto según su tipo.
+    // Devuelve un mensaje de error, o null si el documento está bien.
+    function validarDocumento(tipoDocumento, documento) {
+        // Cada tipo tiene su patrón (expresión regular)
+        // ^ = inicio, $ = fin, \d = dígito, {8} = exactamente 8 veces
+        const reglas = {
+            DNI: { patron: /^\d{8}$/, mensaje: 'El DNI debe tener 8 dígitos numéricos.' },
+            RUC: { patron: /^\d{11}$/, mensaje: 'El RUC debe tener 11 dígitos numéricos.' },
+            PASAPORTE: { patron: /^[A-Za-z0-9]{6,12}$/, mensaje: 'El pasaporte debe tener entre 6 y 12 letras o números.' }
+        };
+
+        // Busca la regla según lo que eligió el usuario en el select
+        const regla = reglas[tipoDocumento];
+
+        // Si el tipo no existe en la lista, se rechaza
+        if (!regla) {
+            return 'Tipo de documento no válido.';
+        }
+
+        // .test() devuelve true si el documento cumple el patrón
+        if (!regla.patron.test(documento)) {
+            return regla.mensaje;
+        }
+
+        // null = no hay error
+        return null;
+    }
+
     async function onGuardarCliente() {
         byId('formCliente')?.classList.add('was-validated');
 
@@ -239,8 +267,16 @@
         const email = String(byId('clienteEmail')?.value || '').trim();
         const activo = !!byId('swClienteActivo')?.checked;
 
-        if (!nombres || !apellidos || !documento || documento.length < 8) {
-            showToast('Completa nombres, apellidos y documento (mínimo 8).', 'danger');
+        // Primero revisamos que los campos obligatorios no estén vacíos
+        if (!nombres || !apellidos || !documento) {
+            showToast('Completa nombres, apellidos y documento.', 'danger');
+            return;
+        }
+
+        // Luego revisamos el formato del documento según su tipo
+        const errorDocumento = validarDocumento(tipoDocumento, documento);
+        if (errorDocumento) {
+            showToast(errorDocumento, 'danger');
             return;
         }
 
