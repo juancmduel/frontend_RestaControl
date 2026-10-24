@@ -608,7 +608,7 @@
                         <button class="btn-tbl" title="Editar" data-action="edit" data-id="${escapeHtmlAttr(r.id)}"><i class="bi bi-pencil text-warning"></i></button>
                         <button class="btn-tbl" title="Confirmar rápido" data-action="confirmar" data-id="${escapeHtmlAttr(r.id)}"><i class="bi bi-check2-circle text-success"></i></button>
                         <button class="btn-tbl" title="Cambiar situación" data-action="situacion" data-id="${escapeHtmlAttr(r.id)}" data-estado="${escapeHtmlAttr(estado)}" data-confirmada="${String(confirmada)}"><i class="bi bi-arrow-repeat text-primary"></i></button>
-                        <button class="btn-tbl" title="Eliminar" data-action="delete" data-id="${escapeHtmlAttr(r.id)}"><i class="bi bi-trash text-danger"></i></button>
+                        <button class="btn-tbl" title="Anular" data-action="delete" data-id="${escapeHtmlAttr(r.id)}"><i class="bi bi-x-circle text-danger"></i></button>
                     </div></td>
                 </tr>
             `;
@@ -798,7 +798,7 @@
 
         state.deletingReserva = r;
         const msg = byId('deleteReservaTexto');
-        if (msg) msg.innerHTML = `Se eliminará la reserva <strong>${escapeHtml(r.codigo || r.id || '')}</strong>. Esta acción la dejará inactiva.`;
+        if (msg) msg.innerHTML = `La reserva <strong>${escapeHtml(r.codigo || r.id || '')}</strong> pasará a estado cancelada.`;
         showModal('modalDelete');
     }
 
@@ -822,15 +822,15 @@
                 await handleHttpError(
                     response,
                     payload,
-                    'No se pudo eliminar la reserva.'
+                    'No se pudo anular la reserva.'
                 );
             }
             hideModal('modalDelete');
             state.deletingReserva = null;
             await loadReservas();
-            showToast(payload?.message || 'Reserva eliminada.', 'success');
+            showToast(payload?.message || 'Reserva anulada.', 'success');
         } catch (error) {
-            showToast(error.message || 'No se pudo eliminar la reserva.', 'danger');
+            showToast(error.message || 'No se pudo anular la reserva.', 'danger');
         }
     }
 
